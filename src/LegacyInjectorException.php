@@ -12,9 +12,13 @@ use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionType;
 use RuntimeException;
+use TS\DependencyInjection\Exception\InjectorException;
 
 
-class InjectorException extends RuntimeException
+/**
+ * @deprecated use TS\DependencyInjection\Exception\InjectionException
+ */
+class LegacyInjectorException extends RuntimeException implements InjectorException
 {
 
     const CODE_MISSING_PARAMETER = 100;
@@ -43,19 +47,19 @@ class InjectorException extends RuntimeException
     }
 
 
-    public static function wrongParameterType($value, ReflectionParameter $param): InjectorException
+    public static function wrongParameterType($value, ReflectionParameter $param): LegacyInjectorException
     {
         $function = self::describeDeclaringFunction($param);
         $actualType = is_object($value) ? get_class($value) : gettype($value);
         $expectedType = self::describeType($param->getType());
         $msg = sprintf('Argument $%s passed to %s must be of the type %s, %s given', $param->getName(), $function, $expectedType, $actualType);
-        $ex = new InjectorException($msg);
+        $ex = new LegacyInjectorException($msg);
         $ex->setParameter($param);
         return $ex;
     }
 
 
-    public static function missingParameter(ReflectionParameter $param): InjectorException
+    public static function missingParameter(ReflectionParameter $param): LegacyInjectorException
     {
         $function = self::describeDeclaringFunction($param);
         if ($param->hasType()) {
@@ -64,7 +68,7 @@ class InjectorException extends RuntimeException
         } else {
             $msg = sprintf('Missing argument $%s for %s', $param->getName(), $function);
         }
-        $ex = new InjectorException($msg);
+        $ex = new LegacyInjectorException($msg);
         $ex->setParameter($param);
         return $ex;
     }

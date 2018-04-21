@@ -385,7 +385,7 @@ class AutowireInjector implements InjectorInterface
                     continue;
                 }
 
-                throw InjectorException::missingParameter($param);
+                throw LegacyInjectorException::missingParameter($param);
 
             } else {
 
@@ -458,7 +458,7 @@ class AutowireInjector implements InjectorInterface
     protected function convertToParameterType($value, ReflectionParameter $param)
     {
         if ( $param->allowsNull() === false && is_null($value) ) {
-            throw InjectorException::wrongParameterType($value, $param);
+            throw LegacyInjectorException::wrongParameterType($value, $param);
         }
 
         if ( $param->isVariadic() ) {
@@ -476,63 +476,63 @@ class AutowireInjector implements InjectorInterface
 
             if ($type === 'int') {
                 if (! is_numeric($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 if ($this->strict_types && ! is_integer($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 return intval($value);
 
             } else if ($type === 'float') {
                 if (! is_numeric($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 if ($this->strict_types && ! is_float($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 return floatval($value);
 
             } else if ($type === 'string') {
                 if (! is_scalar($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 if ($this->strict_types && ! is_string($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 return strval($value);
 
             } else if ($type === 'bool') {
                 if (! is_scalar($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 if ($this->strict_types && ! is_bool($value)) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
                 return boolval($value);
 
             } else if ($type === 'object') {
                 if ( ! is_object($value) ) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
 
             } else if ($type === 'callable') {
                 if ( ! is_callable($value) ) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
 
             } else if ($type === 'resource') {
                 if ( ! is_resource($value) ) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
 
             } else if ($type === 'array') {
                 if ( ! is_array($value) ) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
 
             } else if ($type === 'iterable') {
                 if ( ! is_iterable($value) ) {
-                    throw InjectorException::wrongParameterType($value, $param);
+                    throw LegacyInjectorException::wrongParameterType($value, $param);
                 }
             }
 
@@ -541,7 +541,7 @@ class AutowireInjector implements InjectorInterface
             $class = strval($param->getType());
 
             if (! is_a($value, $class) ) {
-                throw InjectorException::wrongParameterType($value, $param);
+                throw LegacyInjectorException::wrongParameterType($value, $param);
             }
 
         }
