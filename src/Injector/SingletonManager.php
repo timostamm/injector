@@ -8,7 +8,7 @@
 
 namespace TS\DependencyInjection\Injector;
 
-use TS\DependencyInjection\Exception\ConfigurationLogicException;
+use TS\DependencyInjection\Exception\ConfigurationException;
 
 class SingletonManager
 {
@@ -23,7 +23,7 @@ class SingletonManager
     public function register(string $className, array $parameterConfig = null):void
     {
         if ($this->hasInstance($className)) {
-            throw ConfigurationLogicException::singletonAlreadyInstantiatedCannotRegister($className);
+            throw ConfigurationException::singletonAlreadyInstantiatedCannotRegister($className);
         }
         $this->entries[$className] = [
             'params' => $parameterConfig,
@@ -39,7 +39,7 @@ class SingletonManager
     public function getParameters(string $className):array
     {
         if (! $this->isRegistered($className)) {
-            throw ConfigurationLogicException::singletonNotRegistered($className);
+            throw ConfigurationException::singletonNotRegistered($className);
         }
         return $this->entries[$className]['params'] ?? [];
     }
@@ -59,7 +59,7 @@ class SingletonManager
     public function getInstance(string $className)
     {
         if (! $this->hasInstance($className)) {
-            throw ConfigurationLogicException::singletonMissingInstance($className);
+            throw ConfigurationException::singletonMissingInstance($className);
         }
         return $this->entries[$className]['instance'];
     }

@@ -12,8 +12,8 @@ use Closure;
 use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionParameter;
-use TS\DependencyInjection\Exception\ConfigurationLogicException;
-use TS\DependencyInjection\Exception\InstantiationException;
+use TS\DependencyInjection\Exception\ConfigurationException;
+use TS\DependencyInjection\Exception\InjectionException;
 use TS\DependencyInjection\Injector\SingletonManager;
 use TS\DependencyInjection\Reflection\Reflector;
 
@@ -227,7 +227,7 @@ class AutowireInjector implements InjectorInterface
 
 
         if (! $this->reflector->classExists($classname) ) {
-            throw InstantiationException::classNotFound($classname);
+            throw InjectionException::classNotFound($classname);
         }
 
 
@@ -254,7 +254,7 @@ class AutowireInjector implements InjectorInterface
         ];
 
         if ($this->singletons->isRegistered($classname) && ! is_null($params)) {
-            throw ConfigurationLogicException::cannotUseParametersForSingleton($classname);
+            throw ConfigurationException::cannotUseParametersForSingleton($classname);
         }
 
         if ($this->singletons->hasInstance($classname)) {
@@ -264,7 +264,7 @@ class AutowireInjector implements InjectorInterface
         } else {
 
             if (! $this->reflector->isClassInstantiable($classname)) {
-                throw InstantiationException::classNotInstantiable($classname);
+                throw InjectionException::classNotInstantiable($classname);
             }
 
             // determine actual params

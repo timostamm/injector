@@ -8,11 +8,10 @@
 
 namespace TS\DependencyInjection\Exception;
 
-use LogicException;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
-class ParameterConfigException extends LogicException implements ConfigurationException
+class ParameterConfigException extends ConfigurationException
 {
 
 

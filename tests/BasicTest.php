@@ -9,7 +9,7 @@
 namespace TS\DependencyInjection;
 
 
-use TS\DependencyInjection\Exception\InstantiationException;
+use TS\DependencyInjection\Exception\InjectionException;
 use TS\DependencyInjection\TestSubjects\AbstractService;
 use TS\DependencyInjection\TestSubjects\Standalone;
 use TS\DependencyInjection\TestSubjects\StandaloneInterface;
@@ -23,21 +23,21 @@ class BasicTest extends InjectorTest
         $this->assertInstanceOf(Standalone::class, $subject);
     }
 
-    public function testInstantiateNonExistant()
+    public function testInstantiateNonExistent()
     {
-        $this->expectException(InstantiationException::class);
+        $this->expectException(InjectionException::class);
         $this->injector->instantiate('This_does_not_exist');
     }
 
     public function testInstantiateInterface()
     {
-        $this->expectException(InstantiationException::class);
+        $this->expectException(InjectionException::class);
         $this->injector->instantiate(StandaloneInterface::class);
     }
 
     public function testInstantiateAbstract()
     {
-        $this->expectException(InstantiationException::class);
+        $this->expectException(InjectionException::class);
         $this->injector->instantiate(AbstractService::class);
     }
 
