@@ -15,13 +15,13 @@ abstract class InjectorTest extends TestCase
 {
 
     /**
-     * @var AutowireInjector
+     * @var Injector
      */
     protected $injector;
 
     protected function setUp()
     {
-        $this->injector = new AutowireInjector();
+        $this->injector = new Injector();
     }
 
 

@@ -40,7 +40,7 @@ use TS\DependencyInjection\Reflection\Reflector;
 
 
 
-class AutowireInjector implements InjectorInterface
+class Injector implements InjectorInterface
 {
 
 
