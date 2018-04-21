@@ -169,6 +169,8 @@ class AutowireInjector implements InjectorInterface
 
 
 
+        // TODO cleanup circular dependency check
+
         if (! $this->current_stack) {
             $this->current_stack = [
                 'ids' => [],
@@ -448,6 +450,11 @@ class AutowireInjector implements InjectorInterface
         return $values;
     }
 
+
+    // TODO replace with ParametersConfig
+    // TODO instead of complex conversion, simply use settype()?
+    // TODO extra parameters must throw exceptions.
+    // TODO must be possible to inspect unresolvable values from the outside -> reflector?
     protected function convertToParameterType($value, ReflectionParameter $param)
     {
         if ( $param->allowsNull() === false && is_null($value) ) {
