@@ -16,6 +16,18 @@ class ParameterConfigException extends LogicException implements ConfigurationEx
 {
 
 
+    public static function hintAndValueCollision(string $hintBy, string $valueBy, $value, $key): self
+    {
+        $p = (is_string($key) ? '$' : '#') . $key;
+        if (is_string($key)) {
+            $msg = sprintf('The parameter %s is ambiguously configured with the value %s and the alias %s.', $p, Reflector::labelForValue($value), $hintBy);
+        } else {
+            $msg = sprintf('The parameter %s is ambiguously configured with the value %s and the alias %s.', $p, Reflector::labelForValue($value), $hintBy);
+        }
+        return new self($msg);
+    }
+
+
     public static function cannotAlias($a, $b, $param): self
     {
         $msg = sprintf('The parameter $%s is ambiguously aliased by a) %s and b) %s.', $param, $a, $b);

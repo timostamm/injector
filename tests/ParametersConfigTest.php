@@ -40,6 +40,25 @@ class ParametersConfigTest extends TestCase
     protected $rest;
 
 
+    public function testAliasAndValueColission()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->interface->parse([
+            StandaloneInterface::class => Standalone::class,
+            '$standaloneInterface' => new Standalone()
+        ]);
+    }
+
+    public function testHintAndValueColission()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->interface->parse([
+            'hint $standaloneInterface' => Standalone::class,
+            '$standaloneInterface' => new Standalone()
+        ]);
+    }
+
+
     public function testParamForAliasInstanceNotFound()
     {
         $this->expectException(ParameterConfigException::class);

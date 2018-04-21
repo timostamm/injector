@@ -130,11 +130,24 @@ class ParametersConfig
                 }
 
             }
+
+            $this->validateHintAndValueCollisions();
         }
 
         $this->valuesBy = null;
     }
 
+    protected function validateHintAndValueCollisions():void
+    {
+        for ($i = 0; $i < count($this->values); $i++) {
+            if ($this->hasHintForIndex($i) && $this->hasValueForIndex($i)) {
+                $hintBy = $this->hintsBy[$i];
+                $valueBy = $this->valuesBy[$i];
+                $value = $this->getValueForIndex($i);
+                throw ParameterConfigException::hintAndValueCollision($hintBy, $valueBy, $value, $this->infos->findName($i) ?? $i);
+            }
+        }
+    }
 
     protected function parseValueForClass(string $class, $value):void
     {
@@ -142,7 +155,8 @@ class ParametersConfig
         for($i = 0; $i < $this->infos->count(); $i++) {
             $t = $this->infos->getType($i);
             if ( $t === $class ) {
-                $this->setValue($i, $value, $class . '::class => ' . Reflector::labelForValue($value));
+                $by = sprintf('%s::class => %s', $class, Reflector::labelForValue($value));
+                $this->setValue($i, $value, $by);
                 $found = true;
             }
         }
@@ -189,7 +203,7 @@ class ParametersConfig
     }
 
 
-    protected function parseTypeHint(int $index, string $name=null, $hint):void
+    protected function parseTypeHint(int $index, string $name=null, $hint, string $by):void
     {
         $key = $name ?? $index;
 
@@ -203,8 +217,8 @@ class ParametersConfig
         $type = $this->infos->getType($index);
 
         if (! $type) {
-            $this->setHint($index, $hint, '$' . $key . ' as ' . $hint);
-            // TODO validate builtin-type or class exists ?
+            $by = sprintf('$%s as %s', $key, $hint);
+            $this->setHint($index, $hint, $by);
             return;
         }
 
@@ -218,7 +232,7 @@ class ParametersConfig
             throw ParameterConfigException::alreadyHinted($key, $hint, $type);
         }
 
-        $this->setHint($index, $hint, '\'hint $' . $key . '\' => ' . $hint . '::class');
+        $this->setHint($index, $hint, $by);
     }
 
 
@@ -239,7 +253,8 @@ class ParametersConfig
         if ($oor && $this->infos->isVariadic() == false ) {
             throw ParameterConfigException::parameterNotFound($index);
         }
-        $this->setValue($index, $value, '#' . $index);
+        $by = sprintf('#%s', $index);
+        $this->setValue($index, $value, $by);
     }
 
 
@@ -249,7 +264,8 @@ class ParametersConfig
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name);
         }
-        $this->setValue($index, $value, '$' . $name);
+        $by = sprintf('$%s', $name, Reflector::labelForValue($value));
+        $this->setValue($index, $value, $by);
     }
 
 
@@ -267,7 +283,8 @@ class ParametersConfig
         }
         $i = $index;
         foreach ($value as $item) {
-            $this->setValue($i++, $item, '...$' . $name);
+            $by = sprintf('...$%s', $name);
+            $this->setValue($i++, $item, $by);
         }
     }
 
@@ -279,10 +296,6 @@ class ParametersConfig
                 throw ParameterConfigException::duplicateParameter($by, $this->valuesBy[$index]);
             }
             $this->valuesBy[$index] = $by;
-
-
-            // TODO ACHTUNG, hier auch checken ob es schon aliases für den index gibt!
-
         }
         $this->values[$index] = $value;
     }
@@ -294,9 +307,6 @@ class ParametersConfig
                 throw ParameterConfigException::duplicateHint($by, $this->hintsBy[$index], $this->infos->findName($index));
             }
             $this->hintsBy[$index] = $by;
-
-            // TODO ACHTUNG, hier auch checken ob es schon values für den index gibt!
-
         }
         $this->hints[$index] = $type;
     }
