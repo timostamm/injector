@@ -134,7 +134,8 @@ class ParametersConfig
             $this->validateHintAndValueCollisions();
         }
 
-        $this->valuesBy = null;
+        // $this->valuesBy = null;
+        // $this->hintsBy = null;
     }
 
     protected function validateHintAndValueCollisions():void

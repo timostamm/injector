@@ -18,8 +18,9 @@ use TS\DependencyInjection\Injector\SingletonManager;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
-// TODO blacklist/whitelist wie Symfony container? https://symfony.com/doc/current/service_container.html#service-psr4-loader
-// TODO compile():InjectorInterface ?
+
+
+// TODO switch to new params and implement default params.
 
 
 // TODO Doku params:
@@ -37,6 +38,10 @@ use TS\DependencyInjection\Reflection\Reflector;
 
 // TODO type hint [ 'hint $pdo' => 'MyClass' ]
 // TODO type hint [ 'hint #0' => 'MyClass' ]
+
+
+// TODO blacklist/whitelist wie Symfony container? https://symfony.com/doc/current/service_container.html#service-psr4-loader
+// TODO compile():InjectorInterface ?
 
 
 
