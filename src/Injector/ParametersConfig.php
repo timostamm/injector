@@ -173,68 +173,52 @@ class ParametersConfig
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name, true);
         }
-        if (!is_string($hint)) {
-            throw ParameterConfigException::hintInvalid($name, $hint);
-        }
-        if ($this->infos->isVariadic($index)) {
-            throw ParameterConfigException::cannotHintVariadic($name, $hint);
-        }
-
-        $type = $this->infos->getType($index);
-
-        if (! $type) {
-            $this->setHint($index, $hint, '$' . $name . ' as ' . $hint);
-            // TODO validate builtin-type or class exists ?
-            return;
-        }
-
-        if ($type === $hint) {
-            throw ParameterConfigException::redundantHint($name, $hint, $type);
-        }
-
-        if (Reflector::isBuiltinType($type) || Reflector::isBuiltinType($hint)) {
-            throw ParameterConfigException::alreadyHinted($name, $hint, $type);
-        }
-
-        if (! is_subclass_of($hint, $type, true)) {
-
-            throw ParameterConfigException::alreadyHinted($name, $hint, $type);
-
-        }
-
-        $this->setHint($index, $hint, '\'hint $' . $name . '\' => ' . $hint . '::class');
+        $by = sprintf('\'hint $%s\' => %s::class', $name, $hint);
+        $this->parseTypeHint($index, $name, $hint, $by);
     }
 
-    // TODO wie oben
-
-    protected function parseTypeHintForIndex(int $index, $value ):void
+    protected function parseTypeHintForIndex(int $index, $hint ):void
     {
         $oor = $index < 0 || $index >= $this->infos->count();
         if ($oor && $this->infos->isVariadic() == false ) {
             throw ParameterConfigException::parameterNotFound($index, true);
         }
 
+        $by = sprintf('\'hint #%s\' => %s::class', $index, $hint);
+        $this->parseTypeHint($index, null, $hint, $by);
+    }
 
-        if (! is_string($value)) {
-            throw ParameterConfigException::hintInvalid($index, $value);
+
+    protected function parseTypeHint(int $index, string $name=null, $hint):void
+    {
+        $key = $name ?? $index;
+
+        if (!is_string($hint)) {
+            throw ParameterConfigException::hintInvalid($key, $hint);
         }
-        /*
-        if (! Reflector::isBuiltinType($value) ) {
-
+        if ($this->infos->isVariadic($index)) {
+            throw ParameterConfigException::cannotHintVariadic($key, $hint);
         }
-*/
-
-        if ($this->infos->hasBuiltinType($index)) {
-            throw ParameterConfigException::alreadyHinted($index, $value, $this->infos->getType($index));
-        }
-
 
         $type = $this->infos->getType($index);
-        if ($type) {
-            throw ParameterConfigException::alreadyHinted($index, $value, $type);
+
+        if (! $type) {
+            $this->setHint($index, $hint, '$' . $key . ' as ' . $hint);
+            // TODO validate builtin-type or class exists ?
+            return;
         }
 
-        $this->hints[$index] = $value;
+        if ($type === $hint) {
+            throw ParameterConfigException::redundantHint($key, $hint, $type);
+        }
+        if (Reflector::isBuiltinType($type) || Reflector::isBuiltinType($hint)) {
+            throw ParameterConfigException::alreadyHinted($key, $hint, $type);
+        }
+        if (! is_subclass_of($hint, $type, true)) {
+            throw ParameterConfigException::alreadyHinted($key, $hint, $type);
+        }
+
+        $this->setHint($index, $hint, '\'hint $' . $key . '\' => ' . $hint . '::class');
     }
 
 

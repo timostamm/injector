@@ -76,6 +76,15 @@ class ParametersConfigTest extends TestCase
         $this->assertSame(Standalone::class, $a);
     }
 
+    public function testHintByIndex()
+    {
+        $this->interface->parse([
+            'hint #0' => Standalone::class,
+        ]);
+        $a = $this->interface->getHintForIndex(0);
+        $this->assertSame(Standalone::class, $a);
+    }
+
     public function testParamForClassAliasNotFound()
     {
         $this->expectException(ParameterConfigException::class);

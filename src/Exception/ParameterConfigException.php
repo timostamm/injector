@@ -60,9 +60,13 @@ class ParameterConfigException extends LogicException implements ConfigurationEx
     }
 
 
-    public static function cannotHintVariadic(string $name): self
+    public static function cannotHintVariadic($key): self
     {
-        $msg = sprintf('Cannot hint variadic parameter ...$%s.', $name);
+        if (is_string($key)) {
+            $msg = sprintf('Cannot hint variadic parameter ...$%s.', $key);
+        } else {
+            $msg = sprintf('Cannot hint variadic parameter ...#%s.', $key);
+        }
         return new self($msg);
     }
 
