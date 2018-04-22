@@ -57,6 +57,18 @@ class ParameterConfigException extends ConfigurationException
         return new self($msg);
     }
 
+    public static function nullValueNotAllowed(string $by): self
+    {
+        $msg = sprintf('Parameter %s does not allow null.', $by);
+        return new self($msg);
+    }
+
+    public static function valueNotAssignable(string $by, string $expected, $value): self
+    {
+        $msg = sprintf('Expected value for %s to be %s, got %s instead.', $by, $expected, Reflector::labelForValue($value));
+        return new self($msg);
+    }
+
     public static function spreadValueNotIterable(string $name, $value): self
     {
         $msg = sprintf('Cannot spread value of type %s for parameter ...$%s, value must be iterable.', gettype($value), $name);

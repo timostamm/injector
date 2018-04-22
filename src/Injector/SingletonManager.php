@@ -10,6 +10,8 @@ namespace TS\DependencyInjection\Injector;
 
 use TS\DependencyInjection\Exception\ConfigurationException;
 
+
+// TODO hier keine parameters speichern
 class SingletonManager
 {
 

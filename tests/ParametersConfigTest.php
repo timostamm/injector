@@ -40,12 +40,36 @@ class ParametersConfigTest extends TestCase
     protected $rest;
 
 
-    public function testAliasAndValueColission()
+
+    public function testValueNotAssignable_int_string()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->builtins->parse([
+            '$int' => "str",
+        ]);
+    }
+
+    public function testValueNotAssignable_int_object()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->builtins->parse([
+            '$int' => new Standalone(),
+        ]);
+    }
+
+    public function testValueNotAssignable_object_str()
     {
         $this->expectException(ParameterConfigException::class);
         $this->interface->parse([
-            StandaloneInterface::class => Standalone::class,
-            '$standaloneInterface' => new Standalone()
+            '$standaloneInterface' => "xxx",
+        ]);
+    }
+
+    public function testInvalidNullValue()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->interface->parse([
+            '$standaloneInterface' => null,
         ]);
     }
 
@@ -57,7 +81,6 @@ class ParametersConfigTest extends TestCase
             '$standaloneInterface' => new Standalone()
         ]);
     }
-
 
     public function testParamForAliasInstanceNotFound()
     {

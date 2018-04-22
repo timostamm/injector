@@ -14,14 +14,8 @@ use TS\DependencyInjection\TestSubjects\AbstractService;
 use TS\DependencyInjection\TestSubjects\Standalone;
 use TS\DependencyInjection\TestSubjects\StandaloneInterface;
 
-class BasicTest extends InjectorTest
+class NotInstantiableTest extends InjectorTest
 {
-
-    public function testInstantiate()
-    {
-        $subject = $this->injector->instantiate(Standalone::class);
-        $this->assertInstanceOf(Standalone::class, $subject);
-    }
 
     public function testInstantiateNonExistent()
     {

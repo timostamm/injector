@@ -48,6 +48,35 @@ class ParametersInfo
         }
     }
 
+
+    public function isValueAssignable($value, int $index):bool
+    {
+        if ( is_null($value) && $this->allowsNull($index) ) {
+            return false;
+        }
+        $type = $this->getType($index);
+        switch ($type) {
+            case null:
+                return true;
+            case 'bool':
+                return is_bool($value);
+            case 'int':
+            case 'float':
+                return is_numeric($value);
+            case 'string':
+                return is_string($value);
+            case 'array':
+                return is_array($value);
+            case 'resource':
+                return is_resource($value);
+            case 'callable':
+                return is_callable($value);
+            default:
+                return is_a($value, $type);
+        }
+    }
+
+
     public function getNames():array
     {
         return $this->name;
@@ -68,14 +97,27 @@ class ParametersInfo
 
     public function hasBuiltinType(int $index):bool
     {
+        if ($index < 0 || $index >= $this->count()) {
+            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        }
         return $this->hasType($index) && $this->typeBuiltin[ $index ];
     }
 
     public function isRequired(int $index):bool
     {
+        if ($index < 0 || $index >= $this->count()) {
+            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        }
         return ! $this->optional[ $index ];
     }
 
+    public function allowsNull(int $index):bool
+    {
+        if ($index < 0 || $index >= $this->count()) {
+            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        }
+        return ! $this->allowsNull[ $index ];
+    }
 
     public function findIndex(string $name):?int
     {
@@ -85,6 +127,9 @@ class ParametersInfo
 
     public function findName(int $index):?string
     {
+        if ($index < 0 || $index >= $this->count()) {
+            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        }
         return $this->name[$index] ?? null;
     }
 
@@ -93,10 +138,13 @@ class ParametersInfo
         if ($index === -1) {
             return $this->variadic;
         }
-        if ($index < 0 || $index >= $this->count()) {
+        if ($this->variadic) {
+            return $index >= $this->count() -1;
+        }
+        if ($index >= $this->count()) {
             throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
         }
-        return $index === $this->count()-1 && $this->variadic;
+        return false;
     }
 
     public function count():int

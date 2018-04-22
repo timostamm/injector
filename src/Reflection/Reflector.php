@@ -163,9 +163,10 @@ class Reflector
     }
 
 
+
     public static function isBuiltinType(string $type):bool
     {
-        return in_array($type, ['bool', 'int', 'float', 'double', 'string', 'array', 'resource', 'callable']);
+        return in_array($type, ['bool', 'int', 'float', 'string', 'array', 'resource', 'callable']);
     }
 
 

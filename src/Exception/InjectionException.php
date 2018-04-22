@@ -14,6 +14,13 @@ use RuntimeException;
 class InjectionException extends RuntimeException implements InjectorException
 {
 
+    public static function instantiateMissingBuiltins(string $className, array $missingBuiltins):self
+    {
+        $n = join(', $', $missingBuiltins);
+        $msg = sprintf('Cannot instantiate class %s, missing required arguments: $%s. You can provide these arguments in Injector::instantiate() or set default arguments for a class using Injector::params().', $className, $n);
+        return new self($msg);
+    }
+
     public static function classNotFound(string $className, string $aliasedFrom=null):InjectionException
     {
         if (empty($aliasedFrom)) {

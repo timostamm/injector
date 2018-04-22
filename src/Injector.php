@@ -9,12 +9,18 @@
 namespace TS\DependencyInjection;
 
 use Closure;
+use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionParameter;
 use TS\DependencyInjection\Exception\ConfigurationException;
 use TS\DependencyInjection\Exception\InjectionException;
+use TS\DependencyInjection\Injector\ArgumentList;
+use TS\DependencyInjection\Injector\Config;
+use TS\DependencyInjection\Injector\ParametersConfig;
+use TS\DependencyInjection\Injector\ParametersManager;
 use TS\DependencyInjection\Injector\SingletonManager;
+use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
@@ -50,18 +56,22 @@ class Injector implements InjectorInterface
 
 
     protected $strict_types;
-    protected $current_stack = null;
-    protected $aliases;
-    protected $singletons;
-    protected $default_params;
     protected $reflector;
+    protected $singletons;
+    protected $config;
+
+    protected $default_params;
+    protected $current_stack = null;
+
 
     public function __construct(bool $strict_types = false)
     {
-        $this->reflector = new Reflector();
         $this->strict_types = $strict_types;
-        $this->aliases = [];
+
+        $this->reflector = new Reflector();
         $this->singletons = new SingletonManager();
+        $this->config = new Config($this->reflector);
+
         $this->default_params = [];
     }
 
@@ -76,12 +86,24 @@ class Injector implements InjectorInterface
      * @param string $from class name to replace.
      * @param string $to new class name that should be used instead.
      */
-    public function alias(string $from, string $to, array $params = null):void
+    public function alias(string $from, string $to, array $params = null): void
     {
+        if ($this->singletons->hasInstance($from)) {
+            throw ConfigurationException::aliasNotPossibleHasSingletonInstance($from);
+        }
+        if (!empty($params)) {
+            $this->config->registerParameters($to, $params);
+        }
+        $this->config->registerAlias($from, $to);
+        /*
         $this->aliases[$from] = $to;
+        if (! empty($params)) {
+            $this->params->register($to, $params);
+        }
         if (! empty($params)) {
             $this->defaults($to, $params);
         }
+        */
     }
 
 
@@ -100,13 +122,21 @@ class Injector implements InjectorInterface
      * intercept().
      *
      */
-    public function singleton(string $classname, array $params = null):void
+    public function singleton(string $classname, array $params = null): void
     {
+        if (!empty($params)) {
+            $this->config->registerParameters($classname, $params);
+        }
+
+        $this->config->registerSingleton($classname);
+
+        // ???
         $this->singletons->register($classname, $params);
     }
 
 
     // TODO reconsider name: params() ?
+
     /**
      *
      * Set default parameters for a class.
@@ -114,14 +144,20 @@ class Injector implements InjectorInterface
      * @param string $classname
      * @param array $params
      */
-    public function defaults(string $classname, array $params):void
+    public function defaults(string $classname, array $params): void
     {
+        if ($this->singletons->hasInstance($classname)) {
+            throw ConfigurationException::cannotRegisterParamsIsSingleton($classname);
+        }
+        $this->config->registerParameters($classname, $params);
+
         $this->default_params[$classname] = $params;
     }
 
 
 
     // TODO
+
     /**
      * Decorate a class.
      *
@@ -134,12 +170,13 @@ class Injector implements InjectorInterface
      * })
      *
      */
-    public function decorate(string $classname, callable $decorate ):void
+    public function decorate(string $classname, callable $decorate): void
     {
     }
 
 
     // TODO
+
     /**
      * Intercept the instantiation of a class.
      *
@@ -150,8 +187,9 @@ class Injector implements InjectorInterface
      * })
      *
      */
-    public function intercept(string $classname, callable $intercept):void
-    {}
+    public function intercept(string $classname, callable $intercept): void
+    {
+    }
 
 
     /**
@@ -172,11 +210,9 @@ class Injector implements InjectorInterface
         $function = $this->reflector->getCallable($callable);
 
 
-
-
         // TODO cleanup circular dependency check
 
-        if (! $this->current_stack) {
+        if (!$this->current_stack) {
             $this->current_stack = [
                 'ids' => [],
                 'path' => []
@@ -187,18 +223,15 @@ class Injector implements InjectorInterface
         } else {
             $id = sprintf('%s', $function->getName());
         }
-        if (isset($this->current_stack['ids'][ $id ])) {
+        if (isset($this->current_stack['ids'][$id])) {
             throw new \LogicException("circ ref detected");
         }
-        $this->current_stack['ids'][ $id ] = [
+        $this->current_stack['ids'][$id] = [
             'callable' => $callable,
             'reflection' => $function,
             'params' => $params
         ];
         $this->current_stack['path'][] = sprintf('Injector::call(< %s() >)', $id);
-
-
-
 
 
         // TODO
@@ -216,27 +249,34 @@ class Injector implements InjectorInterface
         }
 
 
-
         $this->current_stack = null;
 
     }
 
 
+    public function inspectInstantiate(string $classname, array $params=null)
+    {
+        // TODO
+        // hasMissingArguments():bool
+        // getMissingArgumentsNames():array
+        // getOptionalArgumentNames():array
+        // setArgument(string $name, $value):void
+        // getParametersInfo():ParametersInfo
+        // instantiate()
+    }
 
     public function instantiate(string $classname, array $params = null)
     {
 
-        if (array_key_exists($classname, $this->aliases)) {
-            $classname = $this->aliases[$classname];
-        }
-
-
-        if (! $this->reflector->classExists($classname) ) {
+        if (!$this->reflector->classExists($classname)) {
             throw InjectionException::classNotFound($classname);
         }
 
 
-        if (! $this->current_stack) {
+        $classname = $this->config->resolveClass($classname);
+
+
+        if (!$this->current_stack) {
             $this->current_stack = [
                 'ids' => [],
                 'path' => []
@@ -246,19 +286,20 @@ class Injector implements InjectorInterface
 
         $this->current_stack['path'][] = sprintf('Injector::instanciate( %s )', $id);
 
-        if (isset($this->current_stack['ids'][ $id ])) {
+        if (isset($this->current_stack['ids'][$id])) {
 
             $msg = 'CIRCULAR REFERENCE DETECTED.';
             var_dump($this->current_stack);
             throw new \LogicException($msg);
         }
-        $this->current_stack['ids'][ $id ] = [
+        $this->current_stack['ids'][$id] = [
             'classname' => $classname,
             'reflection' => $class = $this->reflector->getClass($classname),
             'params' => $params
         ];
 
-        if ($this->singletons->isRegistered($classname) && ! is_null($params)) {
+
+        if ($this->singletons->isRegistered($classname) && !is_null($params)) {
             throw ConfigurationException::cannotUseParametersForSingleton($classname);
         }
 
@@ -268,11 +309,17 @@ class Injector implements InjectorInterface
 
         } else {
 
-            if (! $this->reflector->isClassInstantiable($classname)) {
+            if (!$this->reflector->isClassInstantiable($classname)) {
                 throw InjectionException::classNotInstantiable($classname);
             }
 
+            $defaults = $this->config->getParameters($classname);
+            // TODO somehow merge with local parameters
+            $parameters = new ParametersConfig(new ParametersInfo());
+
+
             // determine actual params
+            /*
             if ($this->singletons->isRegistered($classname)) {
                 $actual_params = $this->singletons->getParameters($classname);
             } else if (array_key_exists($classname, $this->default_params)) {
@@ -281,10 +328,36 @@ class Injector implements InjectorInterface
                 $actual_params = $params ?: [];
             }
 
-
             $parameters = $this->reflector->getConstructorParameters($classname);
+
             $args = $this->resolveParameters($parameters, $actual_params);
-            $instance = $this->reflector->instantiateClass($classname, $args);
+            */
+
+
+            $args = new ArgumentList($this->reflector->getConstructorParametersInfo($classname));
+            $args->addConfig($defaults);
+
+            $missingBuiltins = $args->getMissingBuiltins();
+            if (! empty($missingBuiltins)) {
+                throw InjectionException::instantiateMissingBuiltins($classname, $missingBuiltins);
+            }
+
+            $missingDependencies = $args->getMissingDependencies();
+            foreach ($args->getMissingDependencies() as $name) {
+                $type = $args->getType($name);
+
+            }
+
+            foreach ($args->getMissing() as $name ) {
+                $type = $args->getType($name);
+
+
+                print "MISSING VALUE: " .$name. "\n";
+                print $args->getType($name) ."\n";
+            }
+
+
+            $instance = $this->reflector->instantiateClass($classname, $args->values());
 
             $this->singletons->setInstanceIfApplicable($classname, $instance);
 

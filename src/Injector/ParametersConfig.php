@@ -13,6 +13,14 @@ use TS\DependencyInjection\Exception\ParameterConfigException;
 use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
 
+
+// TODO alias sollte nicht als hint, sondern separat gespeichert sein
+
+// TODO rest-parameter sollte nur ein wert sein: länge values = länge parameters.
+// => dadurch immer access per name möglich!!
+
+
+
 class ParametersConfig
 {
 
@@ -24,20 +32,22 @@ class ParametersConfig
     const RE_HINT_NAME = '/^hint \\$([a-zA-Z_\\x7f-\\xff][a-zA-Z0-9_\\x7f-\\xff]*)$/';
     const RE_CLASS = '/^(?:[a-zA-Z_\\x7f-\\xff][a-zA-Z0-9_\\x7f-\\xff]*\\\\)*[a-zA-Z_\\x7f-\\xff][a-zA-Z0-9_\\x7f-\\xff]*$/';
 
-    protected $infos;
+    protected $info;
     protected $values;
     protected $valuesBy;
+    protected $valueMax;
     protected $hints;
     protected $hintsBy;
     protected $empty = true;
 
 
 
-    public function __construct(ParametersInfo $infos)
+    public function __construct(ParametersInfo $info)
     {
-        $this->infos = $infos;
+        $this->info = $info;
         $this->values = [];
         $this->valuesBy = [];
+        $this->valueMax = 0;
         $this->hints = [];
         $this->hintsBy = [];
     }
@@ -61,7 +71,7 @@ class ParametersConfig
         return array_key_exists($index, $this->hints);
     }
 
-    public function getHintForIndex(int $index)
+    public function getHintForIndex(int $index):string
     {
         if (! $this->hasHintForIndex($index)) {
             throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
@@ -69,12 +79,15 @@ class ParametersConfig
         return $this->hints[$index];
     }
 
-
     public function isEmpty():bool
     {
         return $this->empty;
     }
 
+    public function getMaxValueIndex():int
+    {
+        return $this->valueMax;
+    }
 
 
     public function parse(array $config) {
@@ -140,12 +153,12 @@ class ParametersConfig
 
     protected function validateHintAndValueCollisions():void
     {
-        for ($i = 0; $i < count($this->values); $i++) {
+        for($i = 0; $i < $this->info->count(); $i++) {
             if ($this->hasHintForIndex($i) && $this->hasValueForIndex($i)) {
                 $hintBy = $this->hintsBy[$i];
                 $valueBy = $this->valuesBy[$i];
                 $value = $this->getValueForIndex($i);
-                throw ParameterConfigException::hintAndValueCollision($hintBy, $valueBy, $value, $this->infos->findName($i) ?? $i);
+                throw ParameterConfigException::hintAndValueCollision($hintBy, $valueBy, $value, $this->info->findName($i) ?? $i);
             }
         }
     }
@@ -153,8 +166,8 @@ class ParametersConfig
     protected function parseValueForClass(string $class, $value):void
     {
         $found = false;
-        for($i = 0; $i < $this->infos->count(); $i++) {
-            $t = $this->infos->getType($i);
+        for($i = 0; $i < $this->info->count(); $i++) {
+            $t = $this->info->getType($i);
             if ( $t === $class ) {
                 $by = sprintf('%s::class => %s', $class, Reflector::labelForValue($value));
                 $this->setValue($i, $value, $by);
@@ -169,8 +182,8 @@ class ParametersConfig
     protected function parseAliasForClass(string $from, string $to):void
     {
         $found = false;
-        for($i = 0; $i < $this->infos->count(); $i++) {
-            $t = $this->infos->getType($i);
+        for($i = 0; $i < $this->info->count(); $i++) {
+            $t = $this->info->getType($i);
             if ( $t === $from ) {
                 $this->setHint($i, $to, $from . '::class => ' . $to . '::class');
                 $found = true;
@@ -184,7 +197,7 @@ class ParametersConfig
 
     protected function parseTypeHintForName(string $name, $hint ):void
     {
-        $index = $this->infos->findIndex($name);
+        $index = $this->info->findIndex($name);
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name, true);
         }
@@ -194,8 +207,8 @@ class ParametersConfig
 
     protected function parseTypeHintForIndex(int $index, $hint ):void
     {
-        $oor = $index < 0 || $index >= $this->infos->count();
-        if ($oor && $this->infos->isVariadic() == false ) {
+        $oor = $index < 0 || $index >= $this->info->count();
+        if ($oor && $this->info->isVariadic() == false ) {
             throw ParameterConfigException::parameterNotFound($index, true);
         }
 
@@ -211,11 +224,11 @@ class ParametersConfig
         if (!is_string($hint)) {
             throw ParameterConfigException::hintInvalid($key, $hint);
         }
-        if ($this->infos->isVariadic($index)) {
+        if ($this->info->isVariadic($index)) {
             throw ParameterConfigException::cannotHintVariadic($key, $hint);
         }
 
-        $type = $this->infos->getType($index);
+        $type = $this->info->getType($index);
 
         if (! $type) {
             $by = sprintf('$%s as %s', $key, $hint);
@@ -239,8 +252,8 @@ class ParametersConfig
 
     protected function parseValuesArray(array $values):void
     {
-        if ($this->infos->isVariadic() == false && count($values) > $this->infos->count()) {
-            throw ParameterConfigException::tooManyParameters($this->infos->count(), count($values));
+        if ($this->info->isVariadic() == false && count($values) > $this->info->count()) {
+            throw ParameterConfigException::tooManyParameters($this->info->count(), count($values));
         }
         foreach ($values as $index => $value) {
             $this->setValue($index, $value);
@@ -250,8 +263,8 @@ class ParametersConfig
 
     protected function parseValueForIndex(int $index, $value ):void
     {
-        $oor = $index < 0 || $index >= $this->infos->count();
-        if ($oor && $this->infos->isVariadic() == false ) {
+        $oor = $index < 0 || $index >= $this->info->count();
+        if ($oor && $this->info->isVariadic() == false ) {
             throw ParameterConfigException::parameterNotFound($index);
         }
         $by = sprintf('#%s', $index);
@@ -261,7 +274,7 @@ class ParametersConfig
 
     protected function parseValueForName( string $name, $value ):void
     {
-        $index = $this->infos->findIndex($name);
+        $index = $this->info->findIndex($name);
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name);
         }
@@ -272,11 +285,11 @@ class ParametersConfig
 
     protected function parseValueForSpread( string $name, $value ):void
     {
-        $index = $this->infos->findIndex($name);
+        $index = $this->info->findIndex($name);
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name);
         }
-        if (! $this->infos->isVariadic($index) ) {
+        if (! $this->info->isVariadic($index) ) {
             throw ParameterConfigException::cannotSpreadNonVariadic($name);
         }
         if (! is_iterable($value)) {
@@ -296,16 +309,24 @@ class ParametersConfig
             if ( isset($this->valuesBy[$index]) ) {
                 throw ParameterConfigException::duplicateParameter($by, $this->valuesBy[$index]);
             }
+
+            if (! $this->info->isVariadic($index)) {
+                if ( ! $this->info->isValueAssignable($value, $index)) {
+                    throw ParameterConfigException::valueNotAssignable($by, $this->info->getType($index), $value);
+                }
+            }
+
             $this->valuesBy[$index] = $by;
         }
         $this->values[$index] = $value;
+        $this->valueMax = max($this->valueMax, $index);
     }
 
     protected function setHint(int $index, $type, string $by=null):void
     {
         if (! empty($by)) {
             if ( isset($this->hintsBy[$index]) ) {
-                throw ParameterConfigException::duplicateHint($by, $this->hintsBy[$index], $this->infos->findName($index));
+                throw ParameterConfigException::duplicateHint($by, $this->hintsBy[$index], $this->info->findName($index));
             }
             $this->hintsBy[$index] = $by;
         }
@@ -317,8 +338,8 @@ class ParametersConfig
     public function __toString()
     {
         $a = [];
-        foreach ($this->infos->getNames() as $index => $name) {
-            $required = $this->infos->isRequired($index);
+        foreach ($this->info->getNames() as $index => $name) {
+            $required = $this->info->isRequired($index);
             if ($this->hasValueForIndex($index)) {
                 $value = $this->getValueForIndex($index);
                 $a[] = sprintf('\'$%s\' => %s', $name, Reflector::labelForValue($value));
@@ -327,7 +348,7 @@ class ParametersConfig
                 $a[] = sprintf('\'$%s\' => %s', $name, $hint);
             }
         }
-        return sprintf('ParameterConfig(%s)', join(', ', $a));
+        return sprintf('ParametersConfig(%s)', join(', ', $a));
     }
 
 

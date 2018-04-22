@@ -19,6 +19,17 @@ class ConfigurationException extends LogicException implements InjectorException
         return new ConfigurationException($msg);
     }
 
+    public static function cannotRegisterParamsIsSingleton(string $className): ConfigurationException
+    {
+        $msg = sprintf('Cannot register parameters, class %s is instantiated as a singleton.', $className);
+        return new ConfigurationException($msg);
+    }
+
+    public static function aliasNotPossibleHasSingletonInstance(string $className): ConfigurationException
+    {
+        $msg = sprintf('Cannot alias %s, is instantiated as a singleton.', $className);
+        return new ConfigurationException($msg);
+    }
 
     public static function singletonAlreadyInstantiatedCannotRegister(string $className): ConfigurationException
     {
