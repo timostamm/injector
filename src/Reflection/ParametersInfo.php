@@ -14,19 +14,23 @@ class ParametersInfo
 {
 
     private $name;
+    private $index;
     private $optional;
     private $allowsNull;
     private $type;
     private $typeBuiltin;
+    private $defaultValue;
     private $variadic;
 
     public function __construct()
     {
         $this->name = [];
+        $this->index = [];
         $this->type = [];
         $this->typeBuiltin = [];
         $this->allowsNull = [];
         $this->optional = [];
+        $this->defaultValue = [];
         $this->variadic = false;
     }
 
@@ -34,27 +38,49 @@ class ParametersInfo
     {
         $this->variadic = $functionAbstract->isVariadic();
         foreach ($functionAbstract->getParameters() as $param) {
-            $this->name[] = $param->getName();
-            $this->optional[] = $param->isOptional();
-            $this->allowsNull = $param->allowsNull();
+            $name = $param->getName();
+            $this->name[count($this->name)] = $name;
+            $this->index[$name] = count($this->index);
+            $this->optional[$name] = $param->isOptional();
+            $this->allowsNull[$name] = $param->allowsNull();
             $type = $param->getType();
+            if ($param->isDefaultValueAvailable()) {
+                $this->defaultValue[$name] = $param->getDefaultValue();
+            }
             if (is_null($type)) {
-                $this->type[] = null;
-                $this->typeBuiltin[] = false;
+                $this->type[$name] = null;
+                $this->typeBuiltin[$name] = false;
             } else {
-                $this->type[] = strval($type);
-                $this->typeBuiltin[] = $type->isBuiltin();
+                $this->type[$name] = strval($type);
+                $this->typeBuiltin[$name] = $type->isBuiltin();
             }
         }
     }
 
-
-    public function isValueAssignable($value, int $index):bool
+    public function isTypeAssignable(string $type, string $name):bool
     {
-        if ( is_null($value) && $this->allowsNull($index) ) {
+        $target = $this->getType($name);
+        if (is_null($target)) {
+            return true;
+        }
+        if ($type === $target) {
+            return true;
+        }
+        if (Reflector::isBuiltinType($target) || Reflector::isBuiltinType($type)) {
             return false;
         }
-        $type = $this->getType($index);
+        if (! is_subclass_of($type, $target, true)) {
+            return false;
+        }
+        return true;
+    }
+
+    public function isValueAssignable($value, string $name):bool
+    {
+        if ( is_null($value) && $this->allowsNull($name) ) {
+            return false;
+        }
+        $type = $this->getType($name);
         switch ($type) {
             case null:
                 return true;
@@ -77,79 +103,108 @@ class ParametersInfo
     }
 
 
+
     public function getNames():array
     {
         return $this->name;
     }
 
-    public function hasType(int $index):bool
+
+    public function includes(string $name):bool
     {
-        return $this->getType($index) != null;
+        return array_key_exists($name, $this->index);
     }
 
-    public function getType(int $index):?string
+
+    public function indexOf(string $name):int
     {
-        if ($index < 0 || $index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
         }
-        return $this->type[ $index ];
+        return $this->index[$name];
     }
 
-    public function hasBuiltinType(int $index):bool
-    {
-        if ($index < 0 || $index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
-        }
-        return $this->hasType($index) && $this->typeBuiltin[ $index ];
-    }
-
-    public function isRequired(int $index):bool
-    {
-        if ($index < 0 || $index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
-        }
-        return ! $this->optional[ $index ];
-    }
-
-    public function allowsNull(int $index):bool
-    {
-        if ($index < 0 || $index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
-        }
-        return ! $this->allowsNull[ $index ];
-    }
-
-    public function findIndex(string $name):?int
-    {
-        $index = array_search($name, $this->name, true);
-        return $index === false ? null : $index;
-    }
 
     public function findName(int $index):?string
     {
-        if ($index < 0 || $index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
-        }
         return $this->name[$index] ?? null;
     }
 
-    public function isVariadic(int $index = -1):bool
+
+    public function getType(string $name):?string
     {
-        if ($index === -1) {
-            return $this->variadic;
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
         }
-        if ($this->variadic) {
-            return $index >= $this->count() -1;
-        }
-        if ($index >= $this->count()) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
-        }
-        return false;
+        return $this->type[$name];
     }
+
+
+    public function isTypeBuiltin(string $name):bool
+    {
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
+        }
+        return $this->typeBuiltin[$name];
+    }
+
+
+    public function isRequired(string $name):bool
+    {
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
+        }
+        return ! $this->optional[$name];
+    }
+
+
+    public function allowsNull(string $name):bool
+    {
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
+        }
+        return $this->allowsNull[$name];
+    }
+
+
+    public function getDefaultValue(string $name)
+    {
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
+        }
+        return $this->defaultValue[$name] ?? null;
+    }
+
+
+    public function isVariadic(string $name):bool
+    {
+        if (! array_key_exists($name, $this->index)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
+        }
+        if (! $this->variadic) {
+            return false;
+        }
+        $index = $this->indexOf($name);
+        return $index === $this->count() -1;
+    }
+
+    public function hasVariadic():bool
+    {
+        return $this->variadic;
+    }
+
+    public function getVariadic():?string
+    {
+        if (! $this->variadic) {
+            return null;
+        }
+        return $this->name[ count($this->index) -1 ];
+    }
+
 
     public function count():int
     {
-        return count($this->name);
+        return count($this->index);
     }
 
 

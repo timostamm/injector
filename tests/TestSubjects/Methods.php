@@ -16,7 +16,7 @@ class Methods
 
     public static function staticNoArguments() {}
 
-    public function int_float_string_bool_array_resource_callable_Arguments(int $int, float $float, string $string, bool $bool, array $array, resource $resource, callable $callable) {}
+    public function int_float_string_bool_array_resource_callable_Arguments(int $int, float $float, string $string, bool $bool, array $array, callable $callable) {}
 
     public function classArgument(Standalone $standalone, Standalone $optionalStandalone=null) {}
 

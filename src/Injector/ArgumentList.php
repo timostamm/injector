@@ -30,7 +30,7 @@ class ArgumentList
         $this->providedValues = [];
         $this->length = $info->count();
         for ($i = 0; $i < $info->count(); $i++) {
-            $this->missingValues[$i] = $info->isRequired($i);
+            $this->missingValues[$i] = $info->isRequiredByIndex($i);
         }
     }
 
@@ -61,7 +61,7 @@ class ArgumentList
 
     public function provideMissingValue(string $name, $value):void
     {
-        $index = $this->info->findIndex($name);
+        $index = $this->info->indexOf($name);
         if (empty($index)) {
             throw new \OutOfRangeException(sprintf('%s is out of range.', $name));
         }
@@ -74,7 +74,7 @@ class ArgumentList
 
     public function getType(string $name):?string
     {
-        $index = $this->info->findIndex($name);
+        $index = $this->info->indexOf($name);
         if (is_null($index)) {
             throw new \OutOfRangeException(sprintf('%s is out of range.', $name));
         }
@@ -84,7 +84,7 @@ class ArgumentList
                 return $config->getHintForIndex($index);
             }
         }
-        return $this->info->getType($index);
+        return $this->info->getTypeByIndex($index);
     }
 
     // TODO getOptionalValues

@@ -15,9 +15,9 @@ use TS\DependencyInjection\Reflection\Reflector;
 
 
 // TODO alias sollte nicht als hint, sondern separat gespeichert sein
+//
 
-// TODO rest-parameter sollte nur ein wert sein: länge values = länge parameters.
-// => dadurch immer access per name möglich!!
+// TODO rest-parameter nur ein wert!
 
 
 
@@ -53,11 +53,27 @@ class ParametersConfig
     }
 
 
+    public function hasValue(string $name):bool
+    {
+        return array_key_exists($name, $this->values);
+    }
+    public function getValue(string $name)
+    {
+        if (! $this->hasValue($name)) {
+            throw new \OutOfRangeException(sprintf('%s is undefined.', $name));
+        }
+        return $this->values[$name];
+    }
+
+
+
+    /** @deprecated  */
     public function hasValueForIndex(int $index):bool
     {
         return array_key_exists($index, $this->values);
     }
 
+    /** @deprecated  */
     public function getValueForIndex(int $index)
     {
         if (! $this->hasValueForIndex($index)) {
@@ -66,18 +82,24 @@ class ParametersConfig
         return $this->values[$index];
     }
 
-    public function hasHintForIndex(int $index):bool
+
+
+
+    public function hasHint(string $name):bool
     {
-        return array_key_exists($index, $this->hints);
+        return array_key_exists($name, $this->hints);
     }
 
-    public function getHintForIndex(int $index):string
+    public function getHint(string $name):string
     {
-        if (! $this->hasHintForIndex($index)) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $index));
+        if (! $this->hasHint($name)) {
+            throw new \OutOfRangeException(sprintf('%s is out of range.', $name));
         }
-        return $this->hints[$index];
+        return $this->hints[$name];
     }
+
+
+
 
     public function isEmpty():bool
     {
@@ -116,11 +138,11 @@ class ParametersConfig
 
                     $this->parseValueForIndex((int)$matches[1], $value);
 
-                } else if (preg_match(self::RE_HINT_NAME, $key, $matches)) {
+                } else if (preg_match(self::RE_HINT_NAME, $key, $matches) && is_string($value)) {
 
                     $this->parseTypeHintForName($matches[1], $value);
 
-                } else if (preg_match(self::RE_HINT_INDEX, $key, $matches)) {
+                } else if (preg_match(self::RE_HINT_INDEX, $key, $matches) && is_string($value)) {
 
                     $this->parseTypeHintForIndex($matches[1], $value);
 
@@ -153,12 +175,12 @@ class ParametersConfig
 
     protected function validateHintAndValueCollisions():void
     {
-        for($i = 0; $i < $this->info->count(); $i++) {
-            if ($this->hasHintForIndex($i) && $this->hasValueForIndex($i)) {
-                $hintBy = $this->hintsBy[$i];
-                $valueBy = $this->valuesBy[$i];
-                $value = $this->getValueForIndex($i);
-                throw ParameterConfigException::hintAndValueCollision($hintBy, $valueBy, $value, $this->info->findName($i) ?? $i);
+        foreach ($this->info->getNames() as $name) {
+            if ($this->hasHint($name) && $this->hasValue($name)) {
+                $hintBy = $this->hintsBy[$name];
+                $valueBy = $this->valuesBy[$name];
+                $value = $this->getValue($name);
+                throw ParameterConfigException::hintAndValueCollision($hintBy, $valueBy, $value, $name);
             }
         }
     }
@@ -166,11 +188,11 @@ class ParametersConfig
     protected function parseValueForClass(string $class, $value):void
     {
         $found = false;
-        for($i = 0; $i < $this->info->count(); $i++) {
-            $t = $this->info->getType($i);
-            if ( $t === $class ) {
+        foreach ($this->info->getNames() as $name) {
+            $type = $this->info->getType($name);
+            if ( $type === $class ) {
                 $by = sprintf('%s::class => %s', $class, Reflector::labelForValue($value));
-                $this->setValue($i, $value, $by);
+                $this->setValue($name, $value, $by);
                 $found = true;
             }
         }
@@ -182,10 +204,11 @@ class ParametersConfig
     protected function parseAliasForClass(string $from, string $to):void
     {
         $found = false;
-        for($i = 0; $i < $this->info->count(); $i++) {
-            $t = $this->info->getType($i);
-            if ( $t === $from ) {
-                $this->setHint($i, $to, $from . '::class => ' . $to . '::class');
+        foreach ($this->info->getNames() as $name) {
+            $type = $this->info->getType($name);
+            if ( $type === $from ) {
+                $by = sprintf('%s::class => %s::class', $from, $to);
+                $this->setHint($name, $to, $by);
                 $found = true;
             }
         }
@@ -195,101 +218,106 @@ class ParametersConfig
     }
 
 
-    protected function parseTypeHintForName(string $name, $hint ):void
+    protected function parseTypeHintForName(string $name, string $hint ):void
     {
-        $index = $this->info->findIndex($name);
-        if (is_null($index)) {
-            throw ParameterConfigException::parameterNotFound($name, true);
+        $by = sprintf('\'hint $%s\' as %s::class', $name, $hint);
+        if (! $this->info->includes($name)) {
+            throw ParameterConfigException::hintParameterNotFound($by);
         }
-        $by = sprintf('\'hint $%s\' => %s::class', $name, $hint);
-        $this->parseTypeHint($index, $name, $hint, $by);
+        $this->parseTypeHint($name, $hint, $by);
     }
 
-    protected function parseTypeHintForIndex(int $index, $hint ):void
+    protected function parseTypeHintForIndex(int $index, string $hint ):void
     {
-        $oor = $index < 0 || $index >= $this->info->count();
-        if ($oor && $this->info->isVariadic() == false ) {
-            throw ParameterConfigException::parameterNotFound($index, true);
+        $name = $this->info->findName($index);
+        $by = sprintf('\'hint #%s\' as %s::class', $index, $hint);
+        if (! $name) {
+            throw ParameterConfigException::hintParameterNotFound($by);
         }
-
-        $by = sprintf('\'hint #%s\' => %s::class', $index, $hint);
-        $this->parseTypeHint($index, null, $hint, $by);
+        $this->parseTypeHint($name, $hint, $by);
     }
 
 
-    protected function parseTypeHint(int $index, string $name=null, $hint, string $by):void
+    protected function parseTypeHint(string $name, string $hint, string $by):void
     {
-        $key = $name ?? $index;
-
-        if (!is_string($hint)) {
-            throw ParameterConfigException::hintInvalid($key, $hint);
-        }
-        if ($this->info->isVariadic($index)) {
-            throw ParameterConfigException::cannotHintVariadic($key, $hint);
+        if ($this->info->isVariadic($name)) {
+            throw ParameterConfigException::cannotHintVariadic($name);
         }
 
-        $type = $this->info->getType($index);
+        if ($this->info->getType($name) === $hint) {
+            throw ParameterConfigException::redundantHint($by);
+        }
 
+        if (! $this->info->isTypeAssignable($hint, $name)) {
+            throw ParameterConfigException::hintNotAssignable($by, $this->info->getType($name));
+        }
+        $this->setHint($name, $hint, $by);
+
+
+
+        // TODO cleanup
+        return;
+
+
+        $type = $this->info->getType($name);
         if (! $type) {
-            $by = sprintf('$%s as %s', $key, $hint);
-            $this->setHint($index, $hint, $by);
+            $this->setHint($name, $hint, $by);
             return;
         }
 
         if ($type === $hint) {
-            throw ParameterConfigException::redundantHint($key, $hint, $type);
-        }
-        if (Reflector::isBuiltinType($type) || Reflector::isBuiltinType($hint)) {
-            throw ParameterConfigException::alreadyHinted($key, $hint, $type);
-        }
-        if (! is_subclass_of($hint, $type, true)) {
-            throw ParameterConfigException::alreadyHinted($key, $hint, $type);
+            throw ParameterConfigException::redundantHint($by);
         }
 
-        $this->setHint($index, $hint, $by);
+        if (Reflector::isBuiltinType($type) || Reflector::isBuiltinType($hint)) {
+            throw ParameterConfigException::hintNotAssignable($by, $type);
+        }
+        if (! is_subclass_of($hint, $type, true)) {
+            throw ParameterConfigException::hintNotAssignable($by, $type);
+        }
+        $this->setHint($name, $hint, $by);
     }
 
 
     protected function parseValuesArray(array $values):void
     {
-        if ($this->info->isVariadic() == false && count($values) > $this->info->count()) {
+        if ($this->info->isVariadicByIndex() == false && count($values) > $this->info->count()) {
             throw ParameterConfigException::tooManyParameters($this->info->count(), count($values));
         }
         foreach ($values as $index => $value) {
-            $this->setValue($index, $value);
+            $this->setValueByIndex($index, $value);
         }
     }
 
 
     protected function parseValueForIndex(int $index, $value ):void
     {
-        $oor = $index < 0 || $index >= $this->info->count();
-        if ($oor && $this->info->isVariadic() == false ) {
+        $name = $this->info->findName($index);
+        if (! $name) {
             throw ParameterConfigException::parameterNotFound($index);
         }
         $by = sprintf('#%s', $index);
-        $this->setValue($index, $value, $by);
+        $this->setValue($$name, $value, $by);
     }
 
 
     protected function parseValueForName( string $name, $value ):void
     {
-        $index = $this->info->findIndex($name);
-        if (is_null($index)) {
-            throw ParameterConfigException::parameterNotFound($name);
+        if (! $this->info->includes($name)) {
+            throw ParameterConfigException::parameterNameNotFound($name, $this->info);
         }
         $by = sprintf('$%s', $name, Reflector::labelForValue($value));
-        $this->setValue($index, $value, $by);
+        $this->setValue($name, $value, $by);
     }
 
 
     protected function parseValueForSpread( string $name, $value ):void
     {
-        $index = $this->info->findIndex($name);
+        $index = $this->info->indexOf($name);
         if (is_null($index)) {
             throw ParameterConfigException::parameterNotFound($name);
         }
-        if (! $this->info->isVariadic($index) ) {
+        if (! $this->info->isVariadicByIndex($index) ) {
             throw ParameterConfigException::cannotSpreadNonVariadic($name);
         }
         if (! is_iterable($value)) {
@@ -298,21 +326,38 @@ class ParametersConfig
         $i = $index;
         foreach ($value as $item) {
             $by = sprintf('...$%s', $name);
-            $this->setValue($i++, $item, $by);
+            $this->setValueByIndex($i++, $item, $by);
         }
     }
 
 
-    protected function setValue(int $index, $value, string $by=null):void
+    protected function setValue(string $name, $value, string $by=null):void
+    {
+        if ( isset($this->valuesBy[$name]) ) {
+            throw ParameterConfigException::duplicateParameter($by, $this->valuesBy[$name]);
+        }
+        if (! $this->info->includes($name)) {
+            throw ParameterConfigException::parameterNameNotFound($name);
+        }
+        if ( ! $this->info->isValueAssignable($value, $name)) {
+            throw ParameterConfigException::valueNotAssignable($by, $this->info->getType($name), $value);
+        }
+
+        $this->valuesBy[$name] = $by;
+        $this->values[$name] = $value;
+    }
+
+
+    protected function setValueByIndex(int $index, $value, string $by=null):void
     {
         if (! empty($by)) {
             if ( isset($this->valuesBy[$index]) ) {
                 throw ParameterConfigException::duplicateParameter($by, $this->valuesBy[$index]);
             }
 
-            if (! $this->info->isVariadic($index)) {
-                if ( ! $this->info->isValueAssignable($value, $index)) {
-                    throw ParameterConfigException::valueNotAssignable($by, $this->info->getType($index), $value);
+            if (! $this->info->isVariadicByIndex($index)) {
+                if ( ! $this->info->isValueAssignableByIndex($value, $index)) {
+                    throw ParameterConfigException::valueNotAssignable($by, $this->info->getTypeByIndex($index), $value);
                 }
             }
 
@@ -322,15 +367,15 @@ class ParametersConfig
         $this->valueMax = max($this->valueMax, $index);
     }
 
-    protected function setHint(int $index, $type, string $by=null):void
+    protected function setHint(string $name, $type, string $by=null):void
     {
         if (! empty($by)) {
-            if ( isset($this->hintsBy[$index]) ) {
-                throw ParameterConfigException::duplicateHint($by, $this->hintsBy[$index], $this->info->findName($index));
+            if ( isset($this->hintsBy[$name]) ) {
+                throw ParameterConfigException::duplicateHint($by, $this->hintsBy[$name], $name);
             }
-            $this->hintsBy[$index] = $by;
+            $this->hintsBy[$name] = $by;
         }
-        $this->hints[$index] = $type;
+        $this->hints[$name] = $type;
     }
 
 
@@ -339,9 +384,9 @@ class ParametersConfig
     {
         $a = [];
         foreach ($this->info->getNames() as $index => $name) {
-            $required = $this->info->isRequired($index);
-            if ($this->hasValueForIndex($index)) {
-                $value = $this->getValueForIndex($index);
+            $required = $this->info->isRequired($name);
+            if ($this->hasValue($name)) {
+                $value = $this->getValue($name);
                 $a[] = sprintf('\'$%s\' => %s', $name, Reflector::labelForValue($value));
             } else if ($this->hasHintForIndex($index) && $required) {
                 $hint = $this->getHintForIndex($index);

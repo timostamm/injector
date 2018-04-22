@@ -94,7 +94,7 @@ class ParametersConfigTest extends TestCase
     {
         $e = new Standalone();
         $this->interface->parse([StandaloneInterface::class => $e]);
-        $a = $this->interface->getValueForIndex(0);
+        $a = $this->interface->getValue("standaloneInterface");
         $this->assertSame($e, $a);
     }
 
@@ -103,9 +103,9 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             StandaloneInterface::class => Standalone::class
         ]);
-        $a = $this->interface->getHintForIndex(0);
+        $a = $this->interface->getHint('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
-        $a = $this->interface->getHintForIndex(1);
+        $a = $this->interface->getHint('optionalStandaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -114,7 +114,7 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             'hint $standaloneInterface' => Standalone::class,
         ]);
-        $a = $this->interface->getHintForIndex(0);
+        $a = $this->interface->getHint('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -123,7 +123,7 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             'hint #0' => Standalone::class,
         ]);
-        $a = $this->interface->getHintForIndex(0);
+        $a = $this->interface->getHint('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -257,9 +257,9 @@ class ParametersConfigTest extends TestCase
     {
         $this->builtins->parse(['$int' => 123, '$string' => 'str', '$float' => 0.5]);
         $this->assertFalse($this->builtins->isEmpty());
-        $this->assertTrue($this->builtins->hasValueForIndex(0));
-        $this->assertTrue($this->builtins->hasValueForIndex(1));
-        $this->assertTrue($this->builtins->hasValueForIndex(2));
+        $this->assertTrue($this->builtins->hasValue('int'));
+        $this->assertTrue($this->builtins->hasValue('string'));
+        $this->assertTrue($this->builtins->hasValue('float'));
     }
 
     public function testNameDoesNotExist()

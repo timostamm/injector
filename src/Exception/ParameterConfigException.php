@@ -8,6 +8,7 @@
 
 namespace TS\DependencyInjection\Exception;
 
+use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
@@ -83,13 +84,9 @@ class ParameterConfigException extends ConfigurationException
     }
 
 
-    public static function cannotHintVariadic($key): self
+    public static function cannotHintVariadic(string $name): self
     {
-        if (is_string($key)) {
-            $msg = sprintf('Cannot hint variadic parameter ...$%s.', $key);
-        } else {
-            $msg = sprintf('Cannot hint variadic parameter ...#%s.', $key);
-        }
+        $msg = sprintf('Cannot hint variadic parameter ...$%s.', $name);
         return new self($msg);
     }
 
@@ -105,24 +102,16 @@ class ParameterConfigException extends ConfigurationException
     }
 
 
-    public static function redundantHint($key, $hint): self
+    public static function redundantHint(string $expression): self
     {
-        if (is_string($key)) {
-            $msg = sprintf('Parameter hint $%s as %s is redundant.', $key, $hint);
-        } else {
-            $msg = sprintf('Parameter hint #%s as %s is redundant.', $key, $hint);
-        }
+        $msg = sprintf('Parameter hint %s is redundant.', $expression);
         return new self($msg);
     }
 
 
-    public static function alreadyHinted($key, $hint, string $type): self
+    public static function hintNotAssignable(string $expression, string $type): self
     {
-        if (is_string($key)) {
-            $msg = sprintf('Cannot hint parameter $%s as %s, the type is not assignable to the existing parameter type %s.', $key, $hint, $type);
-        } else {
-            $msg = sprintf('Cannot hint parameter #%s as %s, the type is not assignable to the existing parameter type %s.', $key, $hint, $type);
-        }
+        $msg = sprintf('Cannot hint %s, the type is not assignable to the existing parameter type %s.', $expression, $type);
         return new self($msg);
     }
 
@@ -136,6 +125,18 @@ class ParameterConfigException extends ConfigurationException
         return new self($msg);
     }
 
+
+    public static function hintParameterNotFound(string $hintExpr, ParametersInfo $info): self
+    {
+        $msg = sprintf('Parameter for %s not found.', $hintExpr);
+        return new self($msg);
+    }
+
+    public static function parameterNameNotFound(string $name, ParametersInfo $info): self
+    {
+        $msg = sprintf('Parameter $%s does not exist.', $name);
+        return new self($msg);
+    }
 
     public static function parameterNotFound($key, bool $forHint = false): self
     {
