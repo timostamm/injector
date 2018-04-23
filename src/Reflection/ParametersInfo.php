@@ -169,10 +169,19 @@ class ParametersInfo
 
     public function getDefaultValue(string $name)
     {
+        if (! $this->hasDefaultValue($name)) {
+            throw new \OutOfRangeException(sprintf('Parameter %s has no default value.', $name));
+        }
+        return $this->defaultValue[$name];
+    }
+
+
+    public function hasDefaultValue(string $name):bool
+    {
         if (! array_key_exists($name, $this->index)) {
             throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
         }
-        return $this->defaultValue[$name] ?? null;
+        return array_key_exists($name, $this->defaultValue);
     }
 
 

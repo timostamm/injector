@@ -7,6 +7,7 @@
  */
 
 namespace TS\DependencyInjection\Exception;
+
 use ReflectionClass;
 use RuntimeException;
 
@@ -14,35 +15,56 @@ use RuntimeException;
 class InjectionException extends RuntimeException implements InjectorException
 {
 
-    public static function instantiateMissingBuiltins(string $className, array $missingBuiltins):self
+
+    public static function cannotInvoke(string $callableId, \Exception $reason): self
     {
-        $n = join(', $', $missingBuiltins);
-        $msg = sprintf('Cannot instantiate class %s, missing required arguments: $%s. You can provide these arguments in Injector::instantiate() or set default arguments for a class using Injector::params().', $className, $n);
+        $msg = sprintf('Unable to call %s: %s', $callableId, $reason->getMessage());
+        return new InjectionException($msg, null, $reason);
+    }
+
+
+    public static function cannotInstantiate(string $instantiateId, \Exception $reason): self
+    {
+        $msg = sprintf('Unable to create %s: %s', $instantiateId, $reason->getMessage());
+        return new InjectionException($msg, null, $reason);
+    }
+
+
+    public static function classNotFound(string $className): InjectionException
+    {
+        $msg = sprintf('Class %s not found.', $className);
+        return new InjectionException($msg);
+    }
+
+
+    public static function circularDependency(array $path): self
+    {
+        $last = $path[count($path) - 1];
+        $first = array_search($last, $path, true);
+        $parts = array_slice($path, $first);
+
+        $msg = sprintf('Circular dependency detected: %s.', join(' -> ', $parts));
         return new self($msg);
     }
 
-    public static function classNotFound(string $className, string $aliasedFrom=null):InjectionException
+    public static function cannotUseParametersForSingleton(string $className): self
     {
-        if (empty($aliasedFrom)) {
-            $msg = sprintf('Class %x (alias for %s) does not exist, cannot instantiate it.', $className, $aliasedFrom);
-        } else {
-            $msg = sprintf('Class %x does not exist, cannot instantiate it.', $className);
-        }
-        return new InjectionException($msg);
+        $msg = sprintf('The class %s is registered as a singleton and cannot be instantiated with parameters. You have to provide the parameters when registering the singleton.', $className);
+        return new self($msg);
     }
 
-
-    public static function classNotInstantiable(string $className, string $aliasedFrom=null): InjectionException
+    public static function classNotInstantiable(string $className): InjectionException
     {
         $reflector = new ReflectionClass($className);
-        $what = empty($aliasedFrom) ? $className : sprintf('% aliased from %s', $className, $aliasedFrom);
         if ($reflector->isInterface()) {
-            $msg = sprintf('Cannot instantiate the interface %s. Consider creating an alias to a concrete implementation.', $what);
+            $msg = sprintf('Cannot instantiate the interface %s. Consider creating an alias to a concrete implementation.', $className);
         } else if ($reflector->isAbstract()) {
-            $msg = sprintf('Cannot instantiate the abstract class %s. Consider creating an alias to a concrete implementation.', $what);
+            $msg = sprintf('Cannot instantiate the abstract class %s. Consider creating an alias to a concrete implementation.', $className);
         } else {
-            $msg = sprintf('Cannot instantiate %s.', $what);
+            $msg = sprintf('Cannot instantiate %s.', $className);
         }
         return new InjectionException($msg);
     }
+
+
 }

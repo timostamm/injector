@@ -10,26 +10,31 @@ namespace TS\DependencyInjection;
 
 
 use TS\DependencyInjection\Exception\InjectionException;
-use TS\DependencyInjection\TestSubjects\AbstractService;
+use TS\DependencyInjection\TestSubjects\MixedArgumentService;
 use TS\DependencyInjection\TestSubjects\Standalone;
-use TS\DependencyInjection\TestSubjects\StandaloneInterface;
 
 class InstantiateParametersTest extends InjectorTest
 {
 
-/*
     public function testMixedArgument()
     {
         $s = $this->injector->instantiate(MixedArgumentService::class, ['$a' => 123]);
         $this->assertSame(123, $s->a);
     }
 
+    public function testMixedArgumentByIndex()
+    {
+        $s = $this->injector->instantiate(MixedArgumentService::class, [
+            '#0' => 123
+        ]);
+        $this->assertSame(123, $s->a);
+    }
+
     public function testSuperfluousValue()
     {
-        $subject = $this->injector->instantiate(Standalone::class, ['$extra' => 123]);
-        $this->assertInstanceOf(Standalone::class, $subject);
+        $this->expectException(InjectionException::class);
+        $this->injector->instantiate(Standalone::class, ['$extra' => 123]);
     }
-*/
 
 
 }

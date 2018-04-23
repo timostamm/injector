@@ -314,7 +314,7 @@ class ParametersConfigTest extends TestCase
 
     protected function setUp()
     {
-        $this->builtins = $this->setupConfig(Methods::class, 'int_float_string_bool_array_resource_callable_Arguments');
+        $this->builtins = $this->setupConfig(Methods::class, 'int_float_string_bool_array_callable_Arguments');
         $this->class = $this->setupConfig(Methods::class, 'classArgument');
         $this->rest = $this->setupConfig(Methods::class, 'variadicArgument');
         $this->interface = $this->setupConfig(Methods::class, 'interfaceArgument');

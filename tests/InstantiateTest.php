@@ -9,18 +9,64 @@
 namespace TS\DependencyInjection;
 
 
-use TS\DependencyInjection\Exception\InjectionException;
-use TS\DependencyInjection\TestSubjects\AbstractService;
+use TS\DependencyInjection\TestSubjects\Automotive\Car;
+use TS\DependencyInjection\TestSubjects\Automotive\ElectricEngine;
+use TS\DependencyInjection\TestSubjects\Automotive\EngineInterface;
+use TS\DependencyInjection\TestSubjects\Automotive\GasolineEngine;
 use TS\DependencyInjection\TestSubjects\Standalone;
-use TS\DependencyInjection\TestSubjects\StandaloneInterface;
 
 class InstantiateTest extends InjectorTest
 {
 
-    public function testInstantiate()
+    public function testInstantiateStandalone()
     {
         $subject = $this->injector->instantiate(Standalone::class);
         $this->assertInstanceOf(Standalone::class, $subject);
+    }
+
+
+    public function testInstantiateCar()
+    {
+        $this->injector->alias(EngineInterface::class, ElectricEngine::class);
+        $subject = $this->injector->instantiate(Car::class);
+        $this->assertInstanceOf(Car::class, $subject);
+    }
+
+    public function testInstantiateCarWithDefaults()
+    {
+        $this->injector->defaults(Car::class, [
+            '$engine' => new ElectricEngine()
+        ]);
+        $car = $this->injector->instantiate(Car::class);
+        $this->assertInstanceOf(ElectricEngine::class, $car->engine);
+    }
+
+
+    public function testInstantiateCarWithOverriddenDefaults()
+    {
+        $this->injector->defaults(Car::class, [
+            '$engine' => new ElectricEngine()
+        ]);
+        $car = $this->injector->instantiate(Car::class, [
+            '$engine' => new GasolineEngine()
+        ]);
+        $this->assertInstanceOf(GasolineEngine::class, $car->engine);
+    }
+
+
+    public function testDecorate()
+    {
+        $this->injector->defaults(Car::class, [
+            '$engine' => new ElectricEngine()
+        ]);
+
+        $this->injector->decorate(Car::class, function(Car $car, Standalone $standalone){
+            $car->engine = new GasolineEngine();
+            $this->assertNotNull($standalone);
+        });
+
+        $car = $this->injector->instantiate(Car::class);
+        $this->assertInstanceOf(GasolineEngine::class, $car->engine);
     }
 
 

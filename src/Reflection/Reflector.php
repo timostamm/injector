@@ -9,11 +9,10 @@
 namespace TS\DependencyInjection\Reflection;
 
 use Closure;
-use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use ReflectionClass;
 use ReflectionFunctionAbstract;
+use ReflectionFunction;
 use ReflectionObject;
-use TS\DependencyInjection\ReflectionFunction;
 
 
 class Reflector
@@ -28,11 +27,11 @@ class Reflector
 
     public function classExists(string $className):bool
     {
-        return class_exists($className);
+        return class_exists($className) || interface_exists($className);
     }
 
 
-    public function getClass(string $className):ReflectionClass
+    protected function getClass(string $className):ReflectionClass
     {
         return new ReflectionClass($className);
     }
@@ -42,6 +41,12 @@ class Reflector
     {
         $class = $this->getClass($className);
         return $class->isInstantiable();
+    }
+
+
+    public function isClassAssignable(string $from, string $to):bool
+    {
+        return is_a($from, $to, true);
     }
 
 
@@ -62,7 +67,6 @@ class Reflector
     }
 
 
-
     public function getConstructorParametersInfo(string $className):ParametersInfo
     {
         $class = $this->getClass($className);
@@ -75,31 +79,7 @@ class Reflector
     }
 
 
-    /**
-     *
-     * Returns empty array if the class does not have a constructor.
-     * Does not check if the class exists.
-     *
-     * @param string $className
-     * @return array ReflectionParameter
-     *
-     * @deprecated use getConstructorParametersInfo
-     */
-    public function getConstructorParameters(string $className): array
-    {
-        $class = $this->getClass($className);
-        $constructor = $class->getConstructor();
-        if (empty($constructor)) {
-            $parameters = [];
-        } else {
-            $parameters = $constructor->getParameters();
-        }
-        return $parameters;
-    }
-
-
-
-    public function getCallable(callable $callable): ReflectionFunctionAbstract
+    protected function getCallable(callable $callable): ReflectionFunctionAbstract
     {
         $type = $this->getCallableType($callable);
         switch ($type) {
@@ -120,6 +100,36 @@ class Reflector
                 throw new \LogicException('Unknown callable type: ' . gettype($callable));
         }
         return $function;
+    }
+
+
+    public function getCallableId(callable $callable):string
+    {
+        if (is_array($callable)) {
+            if (is_string($callable[0])) {
+                return $callable[0];
+            } else {
+                return sprintf('%s#%s::%s', get_class($callable[0]), $this->objectId($callable[0]), $callable[1]);
+            }
+        } else if (is_string($callable)) {
+            if (strpos($callable, '::') > 0) {
+                return $callable;
+            } else {
+                return $callable;
+            }
+        } else if ($callable instanceof Closure) {
+            return sprintf('%s#%s', get_class($callable), $this->objectId($callable));
+        }
+        throw new \LogicException();
+    }
+
+
+    protected function objectId($object):string
+    {
+        if (function_exists('spl_object_id')) {
+            return spl_object_id($object);
+        }
+        return spl_object_hash($object);
     }
 
 
@@ -152,16 +162,6 @@ class Reflector
         $info->parse($ref);
         return $info;
     }
-
-    /**
-     * @deprecated use getCallableParametersInfo
-     */
-    public function getCallableParameters(callable $callable): array
-    {
-        $function = $this->getCallable($callable);
-        return $function->getParameters();
-    }
-
 
 
     public static function isBuiltinType(string $type):bool

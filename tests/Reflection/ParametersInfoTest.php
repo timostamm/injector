@@ -11,12 +11,8 @@ namespace TS\DependencyInjection\Reflection;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
-use TS\DependencyInjection\Exception\ParameterConfigException;
-use TS\DependencyInjection\Injector\ParametersConfig;
-use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\TestSubjects\Methods;
 use TS\DependencyInjection\TestSubjects\Standalone;
-use TS\DependencyInjection\TestSubjects\StandaloneInterface;
 
 
 class ParametersInfoTest extends TestCase
@@ -126,7 +122,7 @@ class ParametersInfoTest extends TestCase
     protected function setUp()
     {
         $this->builtins = new ParametersInfo();
-        $this->builtins->parse(new ReflectionMethod(Methods::class, 'int_float_string_bool_array_resource_callable_Arguments'));
+        $this->builtins->parse(new ReflectionMethod(Methods::class, 'int_float_string_bool_array_callable_Arguments'));
 
         $this->class = new ParametersInfo();
         $this->class->parse(new ReflectionMethod(Methods::class, 'classArgument'));

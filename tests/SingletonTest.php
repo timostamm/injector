@@ -9,7 +9,8 @@
 namespace TS\DependencyInjection;
 
 
-use TS\DependencyInjection\Exception\ConfigurationException;
+use TS\DependencyInjection\Exception\InjectionException;
+use TS\DependencyInjection\Exception\InjectorConfigException;
 use TS\DependencyInjection\TestSubjects\MixedArgumentService;
 use TS\DependencyInjection\TestSubjects\Standalone;
 
@@ -29,9 +30,8 @@ class SingletonTest extends InjectorTest
     {
         $this->injector->singleton(Standalone::class);
         $this->injector->singleton(Standalone::class);
-
-        $this->expectException(ConfigurationException::class);
         $this->injector->instantiate(Standalone::class);
+        $this->expectException(InjectorConfigException::class);
         $this->injector->singleton(Standalone::class);
     }
 
@@ -39,7 +39,7 @@ class SingletonTest extends InjectorTest
     public function testInstantiationParams()
     {
         $this->injector->singleton(Standalone::class);
-        $this->expectException(ConfigurationException::class);
+        $this->expectException(InjectionException::class);
         $this->injector->instantiate(Standalone::class, ['$x' => 123]);
     }
 

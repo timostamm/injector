@@ -11,9 +11,10 @@ namespace TS\DependencyInjection;
 
 interface InjectorInterface
 {
+
     function invoke(callable $callable, array $params = null);
 
-    function instantiate(string $classname, array $params = null);
+    function instantiate(string $resolvedClass, array $params = null);
 
 
 }

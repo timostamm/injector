@@ -58,7 +58,7 @@ class ParametersConfig
     public function getValue(string $name)
     {
         if (! $this->hasValue($name)) {
-            throw new \OutOfRangeException(sprintf('%s is undefined.', $name));
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
         }
         return $this->values[$name];
     }
@@ -72,7 +72,7 @@ class ParametersConfig
     public function getType(string $name):string
     {
         if (! $this->hasType($name)) {
-            throw new \OutOfRangeException(sprintf('%s is out of range.', $name));
+            throw new \OutOfRangeException(sprintf('Parameter %s is undefined.', $name));
         }
         return $this->hints[$name];
     }
@@ -266,7 +266,7 @@ class ParametersConfig
     protected function parseValueForName( string $name, $value ):void
     {
         if (! $this->info->includes($name)) {
-            throw ParameterConfigException::parameterNameNotFound($name, $this->info);
+            throw ParameterConfigException::parameterNameNotFound($name);
         }
         $by = sprintf('$%s', $name, Reflector::labelForValue($value));
         $this->setValue($name, $value, $by);
@@ -276,10 +276,10 @@ class ParametersConfig
     protected function parseValueForSpread( string $name, $value ):void
     {
         if (! $this->info->includes($name)) {
-            throw ParameterConfigException::parameterNameNotFound($name, $this->info);
+            throw ParameterConfigException::parameterNameNotFound($name);
         }
         if (! $this->info->isVariadic($name)) {
-            throw ParameterConfigException::spreadParamNotVariadic($name, $this->info);
+            throw ParameterConfigException::spreadParamNotVariadic($name);
         }
         if (! is_iterable($value)) {
             throw ParameterConfigException::spreadValueNotIterable($name, $value);
@@ -303,32 +303,12 @@ class ParametersConfig
         }
         if ( ! $this->info->isValueAssignable($value, $name)) {
             throw ParameterConfigException::valueNotAssignable($name, $value, $this->info);
-            throw ParameterConfigException::valueNotAssignable($by, $this->info->getType($name), $value);
         }
 
         $this->valuesBy[$name] = $by;
         $this->values[$name] = $value;
     }
 
-
-    protected function setValueByIndex(int $index, $value, string $by=null):void
-    {
-        if (! empty($by)) {
-            if ( isset($this->valuesBy[$index]) ) {
-                throw ParameterConfigException::duplicateParameter($by, $this->valuesBy[$index]);
-            }
-
-            if (! $this->info->isVariadicByIndex($index)) {
-                if ( ! $this->info->isValueAssignableByIndex($value, $index)) {
-                    throw ParameterConfigException::valueNotAssignable($by, $this->info->getTypeByIndex($index), $value);
-                }
-            }
-
-            $this->valuesBy[$index] = $by;
-        }
-        $this->values[$index] = $value;
-        $this->valueMax = max($this->valueMax, $index);
-    }
 
     protected function setHint(string $name, $type, string $by=null):void
     {

@@ -8,62 +8,36 @@
 
 namespace TS\DependencyInjection\Injector;
 
-use TS\DependencyInjection\Exception\ConfigurationException;
 
-
-// TODO hier keine parameters speichern
 class SingletonManager
 {
 
-    private $entries;
+    private $instances;
 
     public function __construct()
     {
-        $this->entries = [];
+        $this->instances = [];
     }
 
-    public function register(string $className, array $parameterConfig = null):void
+    public function setInstance(string $className, $instance): void
     {
         if ($this->hasInstance($className)) {
-            throw ConfigurationException::singletonAlreadyInstantiatedCannotRegister($className);
+            throw new \LogicException();
         }
-        $this->entries[$className] = [
-            'params' => $parameterConfig,
-            'instance' => null
-        ];
+        $this->instances[$className] = $instance;
     }
 
-    public function isRegistered(string $className):bool
+    public function hasInstance(string $className): bool
     {
-        return array_key_exists($className, $this->entries);
-    }
-
-    public function getParameters(string $className):array
-    {
-        if (! $this->isRegistered($className)) {
-            throw ConfigurationException::singletonNotRegistered($className);
-        }
-        return $this->entries[$className]['params'] ?? [];
-    }
-
-    public function setInstanceIfApplicable(string $className, $instance):void
-    {
-        if ($this->isRegistered($className) && ! $this->hasInstance($className)) {
-            $this->entries[$className]['instance'] = $instance;
-        }
-    }
-
-    public function hasInstance(string $className):bool
-    {
-        return $this->isRegistered($className) && is_object($this->entries[$className]['instance']);
+        return array_key_exists($className, $this->instances);
     }
 
     public function getInstance(string $className)
     {
-        if (! $this->hasInstance($className)) {
-            throw ConfigurationException::singletonMissingInstance($className);
+        if (!$this->hasInstance($className)) {
+            throw new \LogicException();
         }
-        return $this->entries[$className]['instance'];
+        return $this->instances[$className];
     }
 
 

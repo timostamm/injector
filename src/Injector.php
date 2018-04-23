@@ -8,71 +8,31 @@
 
 namespace TS\DependencyInjection;
 
-use Closure;
-use phpDocumentor\Reflection\DocBlock\Tags\Param;
-use ReflectionFunction;
-use ReflectionMethod;
-use ReflectionParameter;
-use TS\DependencyInjection\Exception\ConfigurationException;
+use TS\DependencyInjection\Exception\ArgumentListException;
 use TS\DependencyInjection\Exception\InjectionException;
+use TS\DependencyInjection\Injector\ArgumentInspectionInterface;
 use TS\DependencyInjection\Injector\ArgumentList;
-use TS\DependencyInjection\Injector\Config;
-use TS\DependencyInjection\Injector\ParametersConfig;
-use TS\DependencyInjection\Injector\ParametersManager;
+use TS\DependencyInjection\Injector\InjectorConfig;
 use TS\DependencyInjection\Injector\SingletonManager;
-use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
-
-
-
-
-// TODO switch to new params and implement default params.
-
-
-// TODO Doku params:
-
-// TODO named argument value [ '$a' => 123 ]
-// TODO named argument value [ '$rest' => [1,2,3] ]
-// TODO named argument value [ '...$rest' => [1,2,3] ]
-
-// TODO indexed argument values [ 'abc', 123 ]
-// TODO indexed argument value [ '#1' => 123 ]
-
-// TODO class alias  [ 'MyInterface' => 'MyClass' ]
-
-// TODO class instance  [ 'MyInterface' => $myInstance ]
-
-// TODO type hint [ 'hint $pdo' => 'MyClass' ]
-// TODO type hint [ 'hint #0' => 'MyClass' ]
-
-
-// TODO blacklist/whitelist wie Symfony container? https://symfony.com/doc/current/service_container.html#service-psr4-loader
-// TODO compile():InjectorInterface ?
-
 
 
 class Injector implements InjectorInterface
 {
 
 
-    protected $strict_types;
     protected $reflector;
     protected $singletons;
     protected $config;
-
-    protected $default_params;
-    protected $current_stack = null;
+    protected $resolving;
 
 
-    public function __construct(bool $strict_types = false)
+    public function __construct()
     {
-        $this->strict_types = $strict_types;
-
         $this->reflector = new Reflector();
+        $this->config = new InjectorConfig($this->reflector);
         $this->singletons = new SingletonManager();
-        $this->config = new Config($this->reflector);
-
-        $this->default_params = [];
+        $this->resolving = [];
     }
 
 
@@ -88,22 +48,10 @@ class Injector implements InjectorInterface
      */
     public function alias(string $from, string $to, array $params = null): void
     {
-        if ($this->singletons->hasInstance($from)) {
-            throw ConfigurationException::aliasNotPossibleHasSingletonInstance($from);
-        }
         if (!empty($params)) {
-            $this->config->registerParameters($to, $params);
+            $this->config->registerClassParameters($to, $params);
         }
-        $this->config->registerAlias($from, $to);
-        /*
-        $this->aliases[$from] = $to;
-        if (! empty($params)) {
-            $this->params->register($to, $params);
-        }
-        if (! empty($params)) {
-            $this->defaults($to, $params);
-        }
-        */
+        $this->config->registerClassAlias($from, $to);
     }
 
 
@@ -122,74 +70,41 @@ class Injector implements InjectorInterface
      * intercept().
      *
      */
-    public function singleton(string $classname, array $params = null): void
+    public function singleton(string $className, array $params = null): void
     {
-        if (!empty($params)) {
-            $this->config->registerParameters($classname, $params);
+        if (! is_null($params)) {
+            $this->config->registerClassParameters($className, $params);
         }
-
-        $this->config->registerSingleton($classname);
-
-        // ???
-        $this->singletons->register($classname, $params);
+        $this->config->registerSingleton($className);
     }
 
-
-    // TODO reconsider name: params() ?
 
     /**
      *
      * Set default parameters for a class.
      *
-     * @param string $classname
+     * @param string $className
      * @param array $params
      */
-    public function defaults(string $classname, array $params): void
+    public function defaults(string $className, array $params): void
     {
-        if ($this->singletons->hasInstance($classname)) {
-            throw ConfigurationException::cannotRegisterParamsIsSingleton($classname);
-        }
-        $this->config->registerParameters($classname, $params);
-
-        $this->default_params[$classname] = $params;
+        $this->config->registerClassParameters($className, $params);
     }
 
-
-
-    // TODO
 
     /**
      * Decorate a class.
      *
-     * The injector creates the instance, but you can manipulate
-     * or wrap it.
-     *
-     * $inj->decorate(Foo::class, function(Foo $foo, InjectorInterface $i):Foo {
-     *    $foo->setLogger( $i->instanciate(LoggerInterface::class) );
-     *    return $foo;
+     * $inj->decorate(Foo::class, function(Foo $foo, LoggerInterface $logger):void {
+     *    $foo->setLogger( $logger ) );
      * })
      *
      */
-    public function decorate(string $classname, callable $decorate): void
+    public function decorate(string $className, callable $decorate): void
     {
+        $this->config->registerClassDecorator($className, $decorate);
     }
 
-
-    // TODO
-
-    /**
-     * Intercept the instantiation of a class.
-     *
-     * The injector passes control over to you.
-     *
-     * $inj->intercept(Foo::class, function(array $params, InjectorInterface $i):Foo {
-     *   return $i->instanciate(FooBar::class, $params);
-     * })
-     *
-     */
-    public function intercept(string $classname, callable $intercept): void
-    {
-    }
 
 
     /**
@@ -199,432 +114,176 @@ class Injector implements InjectorInterface
      * The injector reads the type hints of all arguments and
      * recursively creates new instances for the dependencies.
      *
-     * function foo
-     *
-     * @param callable $callable
-     * @param array|null $params
-     * @return mixed
      */
     public function invoke(callable $callable, array $params = null)
     {
-        $function = $this->reflector->getCallable($callable);
-
-
-        // TODO cleanup circular dependency check
-
-        if (!$this->current_stack) {
-            $this->current_stack = [
-                'ids' => [],
-                'path' => []
-            ];
-        }
-        if ($function instanceof ReflectionMethod) {
-            $id = sprintf('%s::%s', $function->getDeclaringClass()->getName(), $function->getName());
-        } else {
-            $id = sprintf('%s', $function->getName());
-        }
-        if (isset($this->current_stack['ids'][$id])) {
-            throw new \LogicException("circ ref detected");
-        }
-        $this->current_stack['ids'][$id] = [
-            'callable' => $callable,
-            'reflection' => $function,
-            'params' => $params
-        ];
-        $this->current_stack['path'][] = sprintf('Injector::call(< %s() >)', $id);
-
-
-        // TODO
-
-        $parameters = $this->reflector->getCallableParameters($callable);
-
-        $args = $this->resolveParameters($parameters, $params ?: []);
-
-        if ($function instanceof ReflectionFunction) {
-            return $function->invokeArgs($args);
-        } else if ($callable instanceof Closure) {
-            return $function->invokeArgs($callable, $args);
-        } else {
-            return $function->invokeArgs($callable[0], $args);
-        }
-
-
-        $this->current_stack = null;
-
+        return $this->invokeRecursive($callable, $params, []);
     }
 
 
-    public function inspectInstantiate(string $classname, array $params=null)
+    public function inspectInvocation(callable $callable):ArgumentInspectionInterface
     {
-        // TODO
-        // hasMissingArguments():bool
-        // getMissingArgumentsNames():array
-        // getOptionalArgumentNames():array
-        // setArgument(string $name, $value):void
-        // getParametersInfo():ParametersInfo
-        // instantiate()
+        return new ArgumentList($this->reflector->getCallableParametersInfo($callable));
     }
 
-    public function instantiate(string $classname, array $params = null)
+
+    protected function invokeRecursive($callable, array $params=null, array $path)
     {
+        $id = $this->reflector->getCallableId($callable) . '()';
 
-        if (!$this->reflector->classExists($classname)) {
-            throw InjectionException::classNotFound($classname);
+        try {
+            // check arguments
+            $argumentList = $this->createInvocationArguments($callable, $params);
+
+            // keep dependency path and check for circularity
+            $path = array_merge($path, [$id]);
+            if (isset($this->resolving[$id])) {
+                throw InjectionException::circularDependency($path);
+            }
+            $this->resolving[$id] = $id;
+
+            // resolve dependencies
+            $this->resolveDependencies($argumentList, $path);
+
+        } catch (\Exception $ex) {
+            throw InjectionException::cannotInvoke($id, $ex);
         }
 
 
-        $classname = $this->config->resolveClass($classname);
+        // call
+        $result = call_user_func_array($callable, $argumentList->values());
 
 
-        if (!$this->current_stack) {
-            $this->current_stack = [
-                'ids' => [],
-                'path' => []
-            ];
+        // this dependency is resolved and must be removed
+        unset($this->resolving[$id]);
+
+        return $result;
+    }
+
+
+    protected function createInvocationArguments($callable, array $params = null):ArgumentList
+    {
+        $list = new ArgumentList($this->reflector->getCallableParametersInfo($callable));
+        $list->addConfig($this->config->parseCallableParameters($callable, $params));
+        $missingBuiltIns = $list->getMissing(ArgumentList::TYPE_UNTYPED | ArgumentList::TYPE_BUILTIN);
+        if (! empty($missingBuiltIns)) {
+            throw ArgumentListException::missingValues($missingBuiltIns);
         }
-        $id = sprintf('%s::__construct()', $classname);
+        return $list;
+    }
 
-        $this->current_stack['path'][] = sprintf('Injector::instanciate( %s )', $id);
 
-        if (isset($this->current_stack['ids'][$id])) {
 
-            $msg = 'CIRCULAR REFERENCE DETECTED.';
-            var_dump($this->current_stack);
-            throw new \LogicException($msg);
+    public function instantiate(string $className, array $params = null)
+    {
+        if (!$this->reflector->classExists($className)) {
+            throw InjectionException::classNotFound($className);
         }
-        $this->current_stack['ids'][$id] = [
-            'classname' => $classname,
-            'reflection' => $class = $this->reflector->getClass($classname),
-            'params' => $params
-        ];
+        return $this->instantiateRecursive($className, $params, []);
+    }
 
 
-        if ($this->singletons->isRegistered($classname) && !is_null($params)) {
-            throw ConfigurationException::cannotUseParametersForSingleton($classname);
-        }
+    public function inspectInstantiation(string $className):ArgumentInspectionInterface
+    {
+        $resolvedClassName = $this->config->resolveClassAlias($className);
+        $argumentList = new ArgumentList($this->reflector->getConstructorParametersInfo($resolvedClassName));
+        $argumentList->addConfig($this->config->getClassParameters($resolvedClassName));
+        return $argumentList;
+    }
 
-        if ($this->singletons->hasInstance($classname)) {
 
-            $instance = $this->singletons->getInstance($classname);
+    protected function instantiateRecursive(string $className, array $params=null, array $path)
+    {
+        $resolvedClassName = $this->config->resolveClassAlias($className);
+        $id = sprintf('new %s()', $resolvedClassName);
 
-        } else {
-
-            if (!$this->reflector->isClassInstantiable($classname)) {
-                throw InjectionException::classNotInstantiable($classname);
+        try {
+            // guards
+            if ($this->config->isSingleton($resolvedClassName) && !is_null($params)) {
+                throw InjectionException::cannotUseParametersForSingleton($resolvedClassName);
+            }
+            if (!$this->reflector->isClassInstantiable($resolvedClassName)) {
+                throw InjectionException::classNotInstantiable($resolvedClassName);
             }
 
-            $defaults = $this->config->getParameters($classname);
-            // TODO somehow merge with local parameters
-            $parameters = new ParametersConfig(new ParametersInfo());
-
-
-            // determine actual params
-            /*
-            if ($this->singletons->isRegistered($classname)) {
-                $actual_params = $this->singletons->getParameters($classname);
-            } else if (array_key_exists($classname, $this->default_params)) {
-                $actual_params = array_replace([], $this->default_params[$classname], $params ?: []);
-            } else {
-                $actual_params = $params ?: [];
+            // return early if singleton instance present
+            if ($this->config->isSingleton($resolvedClassName) && $this->singletons->hasInstance($resolvedClassName)) {
+                return $this->singletons->getInstance($resolvedClassName);
             }
 
-            $parameters = $this->reflector->getConstructorParameters($classname);
+            // check arguments
+            $argumentList = $this->createInstantiationArguments($resolvedClassName, $params);
 
-            $args = $this->resolveParameters($parameters, $actual_params);
-            */
-
-
-            $args = new ArgumentList($this->reflector->getConstructorParametersInfo($classname));
-            $args->addConfig($defaults);
-
-            $missingBuiltins = $args->getMissingBuiltins();
-            if (! empty($missingBuiltins)) {
-                throw InjectionException::instantiateMissingBuiltins($classname, $missingBuiltins);
+            // keep dependency path and check for circularity
+            $path = array_merge($path, [$id]);
+            if (isset($this->resolving[$id])) {
+                throw InjectionException::circularDependency($path);
             }
+            $this->resolving[$id] = $id;
 
-            $missingDependencies = $args->getMissingDependencies();
-            foreach ($args->getMissingDependencies() as $name) {
-                $type = $args->getType($name);
+            // resolve dependencies
+            $this->resolveDependencies($argumentList, $path);
 
-            }
-
-            foreach ($args->getMissing() as $name ) {
-                $type = $args->getType($name);
-
-
-                print "MISSING VALUE: " .$name. "\n";
-                print $args->getType($name) ."\n";
-            }
-
-
-            $instance = $this->reflector->instantiateClass($classname, $args->values());
-
-            $this->singletons->setInstanceIfApplicable($classname, $instance);
-
+        } catch (\Exception $ex) {
+            throw InjectionException::cannotInstantiate($id, $ex);
         }
 
-        $this->current_stack = null;
+
+        // create instance of class
+        $instance = $this->reflector->instantiateClass($resolvedClassName, $argumentList->values());
+
+
+        // decorate it
+        $this->callDecorators($className, $instance, $path);
+
+
+        // remember singleton instance
+        if ($this->config->isSingleton($resolvedClassName)) {
+            $this->singletons->setInstance($resolvedClassName, $instance);
+            $this->config->setSingletonInstantiated($className);
+        }
+
+        // this dependency is resolved and must be removed
+        unset($this->resolving[$id]);
+
         return $instance;
     }
 
 
-    // TODO switch to ParametersConfig
-    protected function resolveParameters(array $parameters, array $param_config): array
+    protected function callDecorators(string $className, $instance, array $path):void
     {
-
-/*
-        $default_config = new ParameterConfig(new ParameterInfos($parameters));
-        $default_config->parse($param_config);
-
-
-        $local_config = clone $default_config;
-        $local_config->parse($param_config);
-
-
-
-
-        $arguments = new Arguments( new ParameterInfos($parameters) );
-        foreach ($local_config->getValuesByIndex() as $index => $value) {
-            $arguments->set($index, $value);
+        $decorators = $this->config->getClassDecorators($className);
+        foreach ($decorators as $decorator) {
+            $this->invokeRecursive($decorator, [
+                $className => $instance
+            ], $path);
         }
-
-
-
-        $arguments = new Arguments( $local_config );
-        $arguments->areSatisfied();
-        $arguments->getUntyped();
-        $arguments->getUntyped();
-
-        $arguments->toArray();
-
-
-        $config = new ParameterConfig($param_config);
-
-        $arguments = new Arguments( new ParameterInfos($parameters) );
-
-        foreach ($arguments->getRequiredNames() as $index => $name) {
-            if ( $config->hasValueForIndex($index) ) {
-                $arguments->set($index, $config->getValueForIndex());
-            }
-            if ( $config->hasValueForName($name) ) {
-                $arguments->set($index, $config->getValueForName($name));
-            }
-
-        }
-*/
-
-
-        $values = [];
-
-        foreach ($parameters as $i => $param) {
-
-            $name = $param->getName();
-
-            if ($param->isVariadic()) {
-
-                /*
-                if ($config->hasValueForName($name)) {
-
-                    $iterable = is_iterable($config->getValueForName($name)) ? $config->getValueForName($name) : [$config->getValueForName($name)];
-                    foreach ($iterable as $append) {
-                        $values[] = $append;
-                    }
-
-                } else if ($config->hasValueForIndex($i)) {
-                    $j = $i;
-                    while($config->hasValueForIndex($j)) {
-                        $values[] = $config->getValueForIndex($j);
-                        $j++;
-                    }
-                }
-*/
-
-                if (array_key_exists('$' . $name, $param_config)) {
-                    $iterable = $this->convertToParameterType($param_config['$'.$name], $param);
-                    foreach ($iterable as $append) {
-                        $values[] = $append;
-                    }
-                }
-
-            } else if (!$param->hasType() || $param->getType()->isBuiltin()) {
-
-                // does the param config contain a value for our parameter name?
-                if (array_key_exists('$' . $name, $param_config)) {
-                    $values[] = $this->convertToParameterType($param_config['$'.$name], $param);
-                    continue;
-                }
-
-                if ($param->isOptional()) {
-                    continue;
-                }
-
-                if ($param->isDefaultValueAvailable()) {
-                    $values[] = $param->getDefaultValue();
-                    continue;
-                }
-
-                throw LegacyInjectorException::missingParameter($param);
-
-            } else {
-
-                $type = strval($param->getType());
-
-                // does the param config contain a value for our parameter name?
-                if (array_key_exists('$' . $name, $param_config)) {
-                    $values[] = $this->convertToParameterType($param_config['$'.$name], $param);
-                    continue;
-                }
-
-                // does the param config contain a value for our parameter type?
-                if (array_key_exists($type, $param_config)) {
-                    if ( is_string($param_config[$type]) ) {
-                        // it is a string, it should be a class
-                        $val = $this->instantiate($param_config[$type]);
-                    } else {
-                        // it should be an instance of our parameter type
-                        $val = $param_config[$type];
-                    }
-                    $values[] = $this->convertToParameterType($val, $param);
-                    continue;
-                }
-
-
-                /*
-                $val = $this->instantiate($type);
-                $values[] = $this->convertToParameterType($val, $param);
-
-                if ($this->container && $this->container->has($type)) {
-                    $values[] = $this->convertToParameterType($this->container->get($type), $param);
-                    continue;
-                }
-                */
-
-
-                if ($param->isOptional()) {
-                    continue;
-                }
-
-                if ($param->isDefaultValueAvailable()) {
-                    $values[] = $param->getDefaultValue();
-                    continue;
-                }
-
-                if ($param->allowsNull()) {
-                    $values[] = null;
-                    continue;
-                }
-
-
-                $val = $this->instantiate($type);
-                $values[] = $this->convertToParameterType($val, $param);
-
-
-                ///throw InjectorException::missingParameter($param);
-
-            }
-
-        }
-
-        return $values;
     }
 
 
-    // TODO replace with ParametersConfig
-    // TODO instead of complex conversion, simply use settype()?
-    // TODO extra parameters must throw exceptions.
-    // TODO must be possible to inspect unresolvable values from the outside -> reflector?
-    protected function convertToParameterType($value, ReflectionParameter $param)
+    protected function createInstantiationArguments(string $className, array $params = null):ArgumentList
     {
-        if ( $param->allowsNull() === false && is_null($value) ) {
-            throw LegacyInjectorException::wrongParameterType($value, $param);
+        $list = new ArgumentList($this->reflector->getConstructorParametersInfo($className));
+        $list->addConfig($this->config->getClassParameters($className));
+        $list->addConfig($this->config->parseClassParameters($className, $params));
+        $missingBuiltIns = $list->getMissing(ArgumentList::TYPE_UNTYPED | ArgumentList::TYPE_BUILTIN);
+        if (!empty($missingBuiltIns)) {
+            throw ArgumentListException::missingValues($missingBuiltIns);
         }
-
-        if ( $param->isVariadic() ) {
-
-            return is_iterable($value) ? $value : [$value];
-        }
-
-        if ($param->hasType() === false) {
-
-            return $value;
-
-        } else if ($param->getType()->isBuiltin()) {
-
-            $type = strval($param->getType());
-
-            if ($type === 'int') {
-                if (! is_numeric($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                if ($this->strict_types && ! is_integer($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                return intval($value);
-
-            } else if ($type === 'float') {
-                if (! is_numeric($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                if ($this->strict_types && ! is_float($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                return floatval($value);
-
-            } else if ($type === 'string') {
-                if (! is_scalar($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                if ($this->strict_types && ! is_string($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                return strval($value);
-
-            } else if ($type === 'bool') {
-                if (! is_scalar($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                if ($this->strict_types && ! is_bool($value)) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-                return boolval($value);
-
-            } else if ($type === 'object') {
-                if ( ! is_object($value) ) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-
-            } else if ($type === 'callable') {
-                if ( ! is_callable($value) ) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-
-            } else if ($type === 'resource') {
-                if ( ! is_resource($value) ) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-
-            } else if ($type === 'array') {
-                if ( ! is_array($value) ) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-
-            } else if ($type === 'iterable') {
-                if ( ! is_iterable($value) ) {
-                    throw LegacyInjectorException::wrongParameterType($value, $param);
-                }
-            }
-
-        } else {
-
-            $class = strval($param->getType());
-
-            if (! is_a($value, $class) ) {
-                throw LegacyInjectorException::wrongParameterType($value, $param);
-            }
-
-        }
-
-        return $value;
+        return $list;
     }
+
+
+
+    protected function resolveDependencies(ArgumentList $list, array $path):void
+    {
+        foreach ($list->getMissing(ArgumentList::TYPE_CLASS) as $name) {
+            $class = $list->getType($name);
+            $instance = $this->instantiateRecursive($class, null, $path);
+            $list->setValue($name, $instance);
+        }
+    }
+
+
 
 }

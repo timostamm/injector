@@ -12,8 +12,49 @@ use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
-class ParameterConfigException extends ConfigurationException
+class ParameterConfigException extends InjectorConfigException
 {
+
+
+    public static function parameterNameNotFound(string $name): self
+    {
+        $msg = sprintf('Parameter $%s does not exist.', $name);
+        return new self($msg);
+    }
+
+    /** @deprecated  */
+    public static function parameterNotFound($key, bool $forHint = false): self
+    {
+        $h = $forHint ? 'hint ' : '';
+        if (is_string($key)) {
+            $msg = sprintf('Parameter %s$%s does not exist.', $h, $key);
+        } else {
+            $msg = sprintf('Parameter %s#%s is out of range.', $h, $key);
+        }
+        return new self($msg);
+    }
+
+    public static function hintParameterNotFound(string $hintExpr): self
+    {
+        $msg = sprintf('Parameter for %s not found.', $hintExpr);
+        return new self($msg);
+    }
+
+    public static function tooManyParameters(int $maxCount, int $actualCount): self
+    {
+        $msg = sprintf('You provided %s parameters, but only %s are available.', $actualCount, $maxCount);
+        return new self($msg);
+    }
+
+    public static function parameterKeyInvalid($key): self
+    {
+        if (is_string($key)) {
+            $msg = sprintf('The parameter configuration array contains the unrecognized key "%s". Possible definitions are: \'$pdo\' => $myPdo, \'#0\' => $myPdo, \'hint $pdo\' => PDO::class, \'hint #0\' => PDO::class, MyInterface::class => MyImplementation::class, MyInterface::class => $myInstance.', $key);
+        } else {
+            $msg = sprintf('The parameter configuration array contains the numerical index %s. If you want to provide a value for an argument at a specific position, use "#1" => $value.', $key);
+        }
+        return new self($msg);
+    }
 
 
     public static function hintAndValueCollision(string $hintBy, string $valueBy, $value, $key): self
@@ -26,7 +67,6 @@ class ParameterConfigException extends ConfigurationException
         }
         return new self($msg);
     }
-
 
     public static function cannotAlias($a, $b, $param): self
     {
@@ -120,46 +160,6 @@ class ParameterConfigException extends ConfigurationException
         return new self($msg);
     }
 
-    public static function parameterKeyInvalid($key, $value): self
-    {
-        if (is_string($key)) {
-            $msg = sprintf('The parameter configuration array contains the unrecognized key "%s". Possible definitions are: \'$pdo\' => $myPdo, \'#0\' => $myPdo, \'hint $pdo\' => PDO::class, \'hint #0\' => PDO::class, MyInterface::class => MyImplementation::class, MyInterface::class => $myInstance.', $key);
-        } else {
-            $msg = sprintf('The parameter configuration array contains the numerical index %s. If you want to provide a value for an argument at a specific position, use "#1" => $value.', $key);
-        }
-        return new self($msg);
-    }
-
-
-    public static function hintParameterNotFound(string $hintExpr, ParametersInfo $info): self
-    {
-        $msg = sprintf('Parameter for %s not found.', $hintExpr);
-        return new self($msg);
-    }
-
-    public static function parameterNameNotFound(string $name, ParametersInfo $info): self
-    {
-        $msg = sprintf('Parameter $%s does not exist.', $name);
-        return new self($msg);
-    }
-
-    public static function parameterNotFound($key, bool $forHint = false): self
-    {
-        $h = $forHint ? 'hint ' : '';
-        if (is_string($key)) {
-            $msg = sprintf('Parameter %s$%s does not exist.', $h, $key);
-        } else {
-            $msg = sprintf('Parameter %s#%s is out of range.', $h, $key);
-        }
-        return new self($msg);
-    }
-
-
-    public static function tooManyParameters(int $maxCount, int $actualCount): self
-    {
-        $msg = sprintf('You provided %s parameters, but only %s are available.', $actualCount, $maxCount);
-        return new self($msg);
-    }
 
 
 }
