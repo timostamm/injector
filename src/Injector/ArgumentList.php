@@ -151,11 +151,10 @@ class ArgumentList implements AII
             if ( ! $includeUntyped && is_null($type) ) {
                 continue;
             }
-            $isBuiltin = Reflector::isBuiltinType($type);
-            if ( ! $includeBuiltin && $isBuiltin && ! is_null($type) ) {
+            if ( ! $includeBuiltin && ! is_null($type) && Reflector::isBuiltinType($type) ) {
                 continue;
             }
-            if ( ! $includeClass && ! $isBuiltin && ! is_null($type) ) {
+            if ( ! $includeClass && ! is_null($type) && ! Reflector::isBuiltinType($type) ) {
                 continue;
             }
             $names[] = $name;
