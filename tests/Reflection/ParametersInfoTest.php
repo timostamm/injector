@@ -6,7 +6,7 @@
  * Time: 10:53
  */
 
-namespace TS\DependencyInjection;
+namespace TS\DependencyInjection\Reflection;
 
 
 use PHPUnit\Framework\TestCase;

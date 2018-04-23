@@ -6,11 +6,10 @@
  * Time: 10:53
  */
 
-namespace TS\DependencyInjection;
+namespace TS\DependencyInjection\Reflection;
 
 
 use PHPUnit\Framework\TestCase;
-use TS\DependencyInjection\Reflection\Reflector;
 use TS\DependencyInjection\TestSubjects\Methods;
 
 class ReflectorTest extends TestCase

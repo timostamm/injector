@@ -170,6 +170,32 @@ class Reflector
     }
 
 
+    public static function getType($value):string
+    {
+        $type = gettype($value);
+        switch ($type) {
+            case 'boolean':
+                return 'bool';
+            case 'integer':
+                return 'int';
+            case 'double':
+                return 'float';
+            case 'resource':
+            case 'resource (closed)':
+                return 'resource';
+            case 'object':
+                return get_class($value);
+            case 'NULL':
+                return 'null';
+            case 'string':
+            case 'array':
+                return $type;
+            default:
+                return $type; // resource, resource (closed), NULL, unknown type
+        }
+    }
+
+
     public static function labelForValue($value):string
     {
         $type = gettype($value);

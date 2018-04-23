@@ -6,13 +6,12 @@
  * Time: 10:53
  */
 
-namespace TS\DependencyInjection;
+namespace TS\DependencyInjection\Injector;
 
 
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use TS\DependencyInjection\Exception\ParameterConfigException;
-use TS\DependencyInjection\Injector\ParametersConfig;
 use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\TestSubjects\Methods;
 use TS\DependencyInjection\TestSubjects\Standalone;
@@ -38,6 +37,11 @@ class ParametersConfigTest extends TestCase
      * @var ParametersConfig
      */
     protected $rest;
+
+    /**
+     * @var ParametersConfig
+     */
+    protected $untyped;
 
 
 
@@ -103,9 +107,9 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             StandaloneInterface::class => Standalone::class
         ]);
-        $a = $this->interface->getHint('standaloneInterface');
+        $a = $this->interface->getType('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
-        $a = $this->interface->getHint('optionalStandaloneInterface');
+        $a = $this->interface->getType('optionalStandaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -114,7 +118,7 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             'hint $standaloneInterface' => Standalone::class,
         ]);
-        $a = $this->interface->getHint('standaloneInterface');
+        $a = $this->interface->getType('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -123,7 +127,7 @@ class ParametersConfigTest extends TestCase
         $this->interface->parse([
             'hint #0' => Standalone::class,
         ]);
-        $a = $this->interface->getHint('standaloneInterface');
+        $a = $this->interface->getType('standaloneInterface');
         $this->assertSame(Standalone::class, $a);
     }
 
@@ -156,23 +160,22 @@ class ParametersConfigTest extends TestCase
     public function testSpreadValueNotIterable()
     {
         $this->expectException(ParameterConfigException::class);
-        $this->expectExceptionMessage('Cannot spread value of type integer for parameter ...$rest, value must be iterable.');
+        $this->expectExceptionMessage('Cannot spread value of type int for parameter ...$rest, value must be iterable.');
         $this->rest->parse(['...$rest' => 123]);
     }
 
     public function testSpreadNonVariadic()
     {
         $this->expectException(ParameterConfigException::class);
-        $this->expectExceptionMessage('Cannot spread non-variadic parameter $int.');
+        $this->expectExceptionMessage('Cannot spread parameter $int, it is not a rest parameter.');
         $this->builtins->parse(['...$int' => [1, 2, 3]]);
     }
 
     public function testSpread()
     {
-        $this->rest->parse(['...$rest' => [1, 2, 3]]);
-        $this->assertSame(1, $this->rest->getValueForIndex(0));
-        $this->assertSame(2, $this->rest->getValueForIndex(1));
-        $this->assertSame(3, $this->rest->getValueForIndex(2));
+        $rest = [1, 2, 3];
+        $this->rest->parse(['...$rest' => $rest]);
+        $this->assertEquals($rest, $this->rest->getValue('rest'));
     }
 
     public function testHintVariadic()
@@ -196,18 +199,19 @@ class ParametersConfigTest extends TestCase
         $this->builtins->parse(['hint $int' => 'int']);
     }
 
-    public function testAlreadyHintedClass()
+
+    public function testAlreadyHinted_builtin()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->expectExceptionMessage('Cannot hint parameter $int as bool, the type is not assignable to the existing parameter type int.');
+        $this->builtins->parse(['hint #0' => 'bool']);
+    }
+
+    public function testAlreadyHinted_class()
     {
         $this->expectException(ParameterConfigException::class);
         $this->expectExceptionMessage('Cannot hint parameter $standalone as int, the type is not assignable to the existing parameter type ' . Standalone::class . '.');
         $this->class->parse(['hint $standalone' => 'int']);
-    }
-
-    public function testAlreadyHinted()
-    {
-        $this->expectException(ParameterConfigException::class);
-        $this->expectExceptionMessage('Cannot hint parameter #0 as bool, the type is not assignable to the existing parameter type int.');
-        $this->builtins->parse(['hint #0' => 'bool']);
     }
 
     public function testInvalidIntegerKey()
@@ -224,26 +228,31 @@ class ParametersConfigTest extends TestCase
 
     public function testArrayArgs()
     {
-        $this->builtins->parse([1, 2, 3]);
+        $this->builtins->parse([1, 0.5, 'str']);
         $this->assertFalse($this->builtins->isEmpty());
-        $this->assertTrue($this->builtins->hasValueForIndex(0));
-        $this->assertTrue($this->builtins->hasValueForIndex(1));
-        $this->assertTrue($this->builtins->hasValueForIndex(2));
-        $this->assertFalse($this->builtins->hasValueForIndex(3));
+        $this->assertTrue($this->builtins->hasValue('int'));
+        $this->assertTrue($this->builtins->hasValue('float'));
+        $this->assertTrue($this->builtins->hasValue('string'));
+    }
+
+    public function testArrayArgsNonAssignable_string_int()
+    {
+        $this->expectException(ParameterConfigException::class);
+        $this->builtins->parse([1, 2, 3]);
     }
 
     public function testTooManyArrayArgs()
     {
         $this->expectException(ParameterConfigException::class);
-        $this->expectExceptionMessage('You provided 8 parameters, but only 7 are available.');
-        $this->builtins->parse([1, 2, 3, 4, 5, 6, 7, 8]);
+        $this->expectExceptionMessage('You provided 7 parameters, but only 6 are available.');
+        $this->builtins->parse([1, 2, 3, 4, 5, 6, 7]);
     }
 
     public function testIndexedArg()
     {
         $this->builtins->parse(['#0' => 1, '#1' => 2]);
-        $this->assertTrue($this->builtins->hasValueForIndex(0));
-        $this->assertTrue($this->builtins->hasValueForIndex(1));
+        $this->assertTrue($this->builtins->hasValue('int'));
+        $this->assertTrue($this->builtins->hasValue('float'));
     }
 
     public function testIndexOutOfRange()
@@ -275,7 +284,7 @@ class ParametersConfigTest extends TestCase
         $this->assertTrue($this->builtins->isEmpty());
     }
 
-    public function testToString()
+    public function testToString_builtins()
     {
         $this->builtins->parse([
             '$int' => 123,
@@ -283,34 +292,43 @@ class ParametersConfigTest extends TestCase
             '$bool' => true,
             '$array' => [1, 2, 3]
         ]);
-        $this->assertTrue(strlen($this->builtins->__toString()) > 0);
+        $this->assertEquals('ParametersConfig($int = 123, $float = 123.000000, $string = ?, $bool = true, $array = array(3), $callable = ?)', $this->builtins->__toString());
     }
+
+    public function testToString_hint_interface()
+    {
+        $this->interface->parse([
+            'hint $standaloneInterface' => Standalone::class
+        ]);
+        $this->assertEquals('ParametersConfig(hint $standaloneInterface as TS\DependencyInjection\TestSubjects\Standalone::class)', $this->interface->__toString());
+    }
+
+    public function testToString_untyped()
+    {
+        $this->untyped->parse([
+            'hint $untyped' => 'int'
+        ]);
+        $this->assertEquals('ParametersConfig(hint $untyped as int)', $this->untyped->__toString());
+    }
+
 
     protected function setUp()
     {
-        $infos = new ParametersInfo();
-        $infos->parse(new ReflectionMethod(Methods::class, 'int_float_string_bool_array_resource_callable_Arguments'));
-        $this->builtins = new ParametersConfig($infos);
-
-        $infos = new ParametersInfo();
-        $infos->parse(new ReflectionMethod(Methods::class, 'classArgument'));
-        $this->class = new ParametersConfig($infos);
-
-        $infos = new ParametersInfo();
-        $infos->parse(new ReflectionMethod(Methods::class, 'variadicArgument'));
-        $this->rest = new ParametersConfig($infos);
-
-        $infos = new ParametersInfo();
-        $infos->parse(new ReflectionMethod(Methods::class, 'interfaceArgument'));
-        $this->interface = new ParametersConfig($infos);
+        $this->builtins = $this->setupConfig(Methods::class, 'int_float_string_bool_array_resource_callable_Arguments');
+        $this->class = $this->setupConfig(Methods::class, 'classArgument');
+        $this->rest = $this->setupConfig(Methods::class, 'variadicArgument');
+        $this->interface = $this->setupConfig(Methods::class, 'interfaceArgument');
+        $this->untyped = $this->setupConfig(Methods::class, 'untypedArgument');
     }
 
-
-    protected function tearDown()
+    protected function setupConfig(string $class, string $method):ParametersConfig
     {
-        $this->builtins = null;
-        $this->class = null;
+        $info = new ParametersInfo();
+        $info->parse(new ReflectionMethod($class, $method));
+        return new ParametersConfig($info);
     }
+
+
 
 
 }

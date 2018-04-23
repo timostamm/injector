@@ -24,7 +24,7 @@ class Methods
 
     public function variadicArgument(...$rest) {}
 
-    public function xPlusVariadicArgument($x, ...$rest) {}
+    public function untypedArgument($untyped, $optionalUntyped=null) {}
 
 
 }

@@ -64,22 +64,26 @@ class ParameterConfigException extends ConfigurationException
         return new self($msg);
     }
 
-    public static function valueNotAssignable(string $by, string $expected, $value): self
+    public static function valueNotAssignable(string $name, $value, ParametersInfo $info): self
     {
-        $msg = sprintf('Expected value for %s to be %s, got %s instead.', $by, $expected, Reflector::labelForValue($value));
+        $expectedType = $info->getType($name);
+        $actualType = Reflector::getType($value);
+        $msg = sprintf('Expected %s for parameter $%s, got %s instead.', $expectedType, $name, $actualType);
         return new self($msg);
     }
+
 
     public static function spreadValueNotIterable(string $name, $value): self
     {
-        $msg = sprintf('Cannot spread value of type %s for parameter ...$%s, value must be iterable.', gettype($value), $name);
+        $actualType = Reflector::getType($value);
+        $msg = sprintf('Cannot spread value of type %s for parameter ...$%s, value must be iterable.', $actualType, $name);
         return new self($msg);
     }
 
 
-    public static function cannotSpreadNonVariadic(string $name): self
+    public static function spreadParamNotVariadic(string $name): self
     {
-        $msg = sprintf('Cannot spread non-variadic parameter $%s.', $name);
+        $msg = sprintf('Cannot spread parameter $%s, it is not a rest parameter.', $name);
         return new self($msg);
     }
 
@@ -93,25 +97,26 @@ class ParameterConfigException extends ConfigurationException
 
     public static function hintInvalid($key, $notAStringValue): self
     {
+        $actualType = Reflector::getType($notAStringValue);
         if (is_string($key)) {
-            $msg = sprintf('Parameter hint $%s must be a class name or builtin type, got %s.', $key, gettype($notAStringValue));
+            $msg = sprintf('Parameter hint $%s must be a class name or builtin type, got %s.', $key, $actualType);
         } else {
-            $msg = sprintf('Parameter hint #%s must be a class name or builtin type, got %s.', $key, gettype($notAStringValue));
+            $msg = sprintf('Parameter hint #%s must be a class name or builtin type, got %s.', $key, $actualType);
         }
         return new self($msg);
     }
 
 
-    public static function redundantHint(string $expression): self
+    public static function redundantHint(string $parameterName, string $hintType): self
     {
-        $msg = sprintf('Parameter hint %s is redundant.', $expression);
+        $msg = sprintf('Parameter hint $%s as %s is redundant.', $parameterName, $hintType);
         return new self($msg);
     }
 
 
-    public static function hintNotAssignable(string $expression, string $type): self
+    public static function hintNotAssignable(string $parameterName, string $hintType, string $existingType): self
     {
-        $msg = sprintf('Cannot hint %s, the type is not assignable to the existing parameter type %s.', $expression, $type);
+        $msg = sprintf('Cannot hint parameter $%s as %s, the type is not assignable to the existing parameter type %s.', $parameterName, $hintType, $existingType);
         return new self($msg);
     }
 
