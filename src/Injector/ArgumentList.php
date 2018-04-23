@@ -12,17 +12,14 @@ namespace TS\DependencyInjection\Injector;
 use TS\DependencyInjection\Exception\ArgumentListException;
 use TS\DependencyInjection\Reflection\ParametersInfo;
 use TS\DependencyInjection\Reflection\Reflector;
+use TS\DependencyInjection\Injector\ArgumentInspectionInterface as AII;
 
 /**
  * Represents a list of arguments that may be ready to use
  * for a function/method call.
  */
-class ArgumentList implements ArgumentInspectionInterface
+class ArgumentList implements AII
 {
-
-    const TYPE_UNTYPED = 2;
-    const TYPE_BUILTIN = 4;
-    const TYPE_CLASS = 8;
 
     protected $info;
     protected $configs;
@@ -102,7 +99,7 @@ class ArgumentList implements ArgumentInspectionInterface
     public function setValue(string $name, $value):void
     {
         if (! $this->info->includes($name)) {
-            throw ArgumentListException::parameterNotFound($name, $this->info);
+            throw ArgumentListException::parameterNotFound($name);
         }
         if (! $this->info->isValueAssignable($value, $name)) {
             throw ArgumentListException::valueNotAssignable($name, $value, $this->info);
@@ -121,7 +118,7 @@ class ArgumentList implements ArgumentInspectionInterface
     public function getType(string $name):?string
     {
         if (! $this->info->includes($name)) {
-            throw ArgumentListException::parameterNotFound($name, $this->info);
+            throw ArgumentListException::parameterNotFound($name);
         }
         foreach ($this->configs as $config) {
             /** @var $config ParametersConfig */
@@ -136,11 +133,11 @@ class ArgumentList implements ArgumentInspectionInterface
     /**
      * Get the names of optional arguments that are not yet provided.
      */
-    public function getOptional(int $type = self::TYPE_BUILTIN | self::TYPE_UNTYPED | self::TYPE_CLASS):array
+    public function getOptional(int $type = AII::TYPE_BUILTIN | AII::TYPE_UNTYPED | AII::TYPE_CLASS):array
     {
-        $includeUntyped = ($type & self::TYPE_UNTYPED) === self::TYPE_UNTYPED;
-        $includeBuiltin = ($type & self::TYPE_BUILTIN) === self::TYPE_BUILTIN;
-        $includeClass = ($type & self::TYPE_CLASS) === self::TYPE_CLASS;
+        $includeUntyped = ($type & AII::TYPE_UNTYPED) === AII::TYPE_UNTYPED;
+        $includeBuiltin = ($type & AII::TYPE_BUILTIN) === AII::TYPE_BUILTIN;
+        $includeClass = ($type & AII::TYPE_CLASS) === AII::TYPE_CLASS;
 
         $names = [];
         foreach ($this->info->getNames() as $name) {
@@ -170,11 +167,11 @@ class ArgumentList implements ArgumentInspectionInterface
     /**
      * Get the names of missing arguments.
      */
-    public function getMissing(int $type = self::TYPE_BUILTIN | self::TYPE_UNTYPED | self::TYPE_CLASS ):array
+    public function getMissing(int $type = AII::TYPE_BUILTIN | AII::TYPE_UNTYPED | AII::TYPE_CLASS ):array
     {
-        $includeUntyped = ($type & self::TYPE_UNTYPED) === self::TYPE_UNTYPED;
-        $includeBuiltin = ($type & self::TYPE_BUILTIN) === self::TYPE_BUILTIN;
-        $includeClass = ($type & self::TYPE_CLASS) === self::TYPE_CLASS;
+        $includeUntyped = ($type & AII::TYPE_UNTYPED) === AII::TYPE_UNTYPED;
+        $includeBuiltin = ($type & AII::TYPE_BUILTIN) === AII::TYPE_BUILTIN;
+        $includeClass = ($type & AII::TYPE_CLASS) === AII::TYPE_CLASS;
 
         $names = [];
         foreach ($this->info->getNames() as $name) {

@@ -17,7 +17,7 @@ use TS\DependencyInjection\Injector\SingletonManager;
 use TS\DependencyInjection\Reflection\Reflector;
 
 
-class Injector implements InjectorInterface
+class Injector implements InjectorInterface, InspectableInjectorInterface
 {
 
 

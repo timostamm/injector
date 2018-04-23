@@ -119,3 +119,15 @@ Parameter configurations, aliases and decorators are strictly validated.
 - If you alias or otherwise configure a class that has already been instantiated as a singleton, an exception is thrown. 
 - If you add an alias that for a class that you have decorated (the decorator would never activate), an exception ist thrown.
 
+
+##### Argument inspection
+
+The InspectableInjectorInterface provides methods to check for missing 
+arguments before invocation: 
+
+    function inspectInvocation(callable $callable): ArgumentInspectionInterface;
+    function inspectInstantiation(string $className): ArgumentInspectionInterface;
+
+This can be used to provide route parameters to a controller, for example.
+
+

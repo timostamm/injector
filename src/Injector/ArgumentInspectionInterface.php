@@ -12,6 +12,12 @@ namespace TS\DependencyInjection\Injector;
 interface ArgumentInspectionInterface
 {
 
+
+    const TYPE_UNTYPED = 2;
+    const TYPE_BUILTIN = 4;
+    const TYPE_CLASS = 8;
+
+    
     /**
      * Get the type of an argument.
      *
@@ -24,12 +30,12 @@ interface ArgumentInspectionInterface
     /**
      * Get the names of optional arguments that are not yet provided.
      */
-    public function getOptional(int $type = ArgumentList::TYPE_BUILTIN | ArgumentList::TYPE_UNTYPED | ArgumentList::TYPE_CLASS): array;
+    public function getOptional(int $type = self::TYPE_BUILTIN | self::TYPE_UNTYPED | self::TYPE_CLASS): array;
 
 
     /**
      * Get the names of missing arguments.
      */
-    public function getMissing(int $type = ArgumentList::TYPE_BUILTIN | ArgumentList::TYPE_UNTYPED | ArgumentList::TYPE_CLASS): array;
+    public function getMissing(int $type = self::TYPE_BUILTIN | self::TYPE_UNTYPED | self::TYPE_CLASS): array;
 
 }
