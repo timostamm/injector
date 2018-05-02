@@ -240,7 +240,7 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
         // remember singleton instance
         if ($this->config->isSingleton($resolvedClassName)) {
             $this->singletons->setInstance($resolvedClassName, $instance);
-            $this->config->setSingletonInstantiated($className);
+            $this->config->setSingletonInstantiated($resolvedClassName);
         }
 
         // this dependency is resolved and must be removed

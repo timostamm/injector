@@ -13,9 +13,19 @@ use TS\DependencyInjection\Exception\InjectionException;
 use TS\DependencyInjection\Exception\InjectorConfigException;
 use TS\DependencyInjection\TestSubjects\MixedArgumentService;
 use TS\DependencyInjection\TestSubjects\Standalone;
+use TS\DependencyInjection\TestSubjects\StandaloneInterface;
 
 class SingletonTest extends InjectorTest
 {
+
+    public function testAliased()
+    {
+        $this->injector->alias(StandaloneInterface::class, Standalone::class);
+        $this->injector->singleton(Standalone::class);
+        $a = $this->injector->instantiate(StandaloneInterface::class);
+        $b = $this->injector->instantiate(StandaloneInterface::class);
+        $this->assertSame($a, $b);
+    }
 
     public function testShared()
     {
