@@ -123,7 +123,7 @@ class InjectorConfigTest extends TestCase
     {
         $this->config->registerSingleton(Standalone::class);
         $this->config->setSingletonInstantiated(Standalone::class);
-        $this->expectException(\LogicException::class);
+        $this->expectException(InjectorConfigException::class);
         $this->config->registerSingleton(Standalone::class);
     }
 
@@ -131,8 +131,29 @@ class InjectorConfigTest extends TestCase
     public function test_registerSingleton_aliased()
     {
         $this->config->registerClassAlias(Standalone::class, ExtendsStandalone::class);
-        $this->expectException(\LogicException::class);
+        $this->expectException(InjectorConfigException::class);
         $this->config->registerSingleton(Standalone::class);
+    }
+
+
+    public function test_registerFactory()
+    {
+        $this->config->registerClassFactory(Standalone::class, function(){});
+        $this->config->registerClassFactory(Standalone::class, function():Standalone{});
+        $this->config->registerClassFactory(Standalone::class, function():ExtendsStandalone{});
+        $this->assertTrue($this->config->hasClassFactory(Standalone::class));
+    }
+
+    public function test_registerFactory_void()
+    {
+        $this->expectException(InjectorConfigException::class);
+        $this->config->registerClassFactory(Standalone::class, function():void{});
+    }
+
+    public function test_registerFactory_type_mismatch()
+    {
+        $this->expectException(InjectorConfigException::class);
+        $this->config->registerClassFactory(ExtendsStandalone::class, function():Standalone{});
     }
 
 

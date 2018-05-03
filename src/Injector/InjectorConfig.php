@@ -21,6 +21,7 @@ class InjectorConfig
     protected $params;
     protected $alias;
     protected $decorators;
+    protected $factories;
     protected $singleton;
     protected $singletonInstantiated;
     protected $emptyParams;
@@ -31,6 +32,7 @@ class InjectorConfig
         $this->params = [];
         $this->alias = [];
         $this->decorators = [];
+        $this->factories = [];
         $this->singleton = [];
         $this->singletonInstantiated = [];
         $this->emptyParams = new ParametersConfig(new ParametersInfo());
@@ -101,6 +103,41 @@ class InjectorConfig
     public function getClassDecorators(string $className):array
     {
         return $this->decorators[$className] ?? [];
+    }
+
+
+
+    public function registerClassFactory(string $className, callable $factory):void
+    {
+        if (! $this->reflector->classExists($className)) {
+            throw InjectorConfigException::factoryClassNotFound($className);
+        }
+        if (array_key_exists($className, $this->alias)) {
+            throw InjectorConfigException::factoryAliased($className, $this->alias[$className]);
+        }
+        if ($this->isSingleton($className) && $this->singletonInstantiated[$className]) {
+            throw InjectorConfigException::cannotRegisterFactoryIsSingleton($className);
+        }
+
+        $returnType = $this->reflector->getCallableReturnType($factory);
+        if (is_null($returnType)) {
+        } else if ($returnType === 'void') {
+            throw InjectorConfigException::factoryReturnsWrongType($className, $returnType);
+        } else if (! $this->reflector->isClassAssignable($returnType, $className)) {
+            throw InjectorConfigException::factoryReturnsWrongType($className, $returnType);
+        }
+
+        $this->factories[$className] = $factory;
+    }
+
+    public function hasClassFactory(string $className):bool
+    {
+        return array_key_exists($className, $this->factories);
+    }
+
+    public function getClassFactory(string $className):callable
+    {
+        return $this->factories[$className];
     }
 
 

@@ -45,6 +45,17 @@ aliases, default parameters, singletons and decorators.
     var_dump($a === $b); 
 
 
+##### Factories
+
+    // configure injector to call the factory function 
+    // to create the object
+    $injector->factory(Service::class, function(Database $db){
+        $total = $db->countEntries();
+        return new MyService( $total );
+    });
+    
+    $service = $injector->instantiate(Service::class);
+
 ##### Decorators
 
     // configure injector to call the decorator function 
@@ -118,6 +129,7 @@ Parameter configurations, aliases and decorators are strictly validated.
 - If your alias is not assignable, an exception is thrown. 
 - If you alias or otherwise configure a class that has already been instantiated as a singleton, an exception is thrown. 
 - If you add an alias that for a class that you have decorated (the decorator would never activate), an exception ist thrown.
+- If your factory has a return type, it is checked that the return type is assignable.
 
 
 ##### Argument inspection

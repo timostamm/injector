@@ -47,11 +47,20 @@ class InjectionException extends RuntimeException implements InjectorException
         return new self($msg);
     }
 
+
+    public static function factoryReturnType(string $className, $actualType): InjectionException
+    {
+        $msg = sprintf('Factory for class %s returned an unexpected type: %s.', $className, $actualType);
+        return new InjectionException($msg);
+    }
+
+
     public static function cannotUseParametersForSingleton(string $className): self
     {
         $msg = sprintf('The class %s is registered as a singleton and cannot be instantiated with parameters. You have to provide the parameters when registering the singleton.', $className);
         return new self($msg);
     }
+
 
     public static function classNotInstantiable(string $className): InjectionException
     {

@@ -9,6 +9,7 @@
 namespace TS\DependencyInjection;
 
 
+use TS\DependencyInjection\Exception\InjectionException;
 use TS\DependencyInjection\TestSubjects\Automotive\Car;
 use TS\DependencyInjection\TestSubjects\Automotive\ElectricEngine;
 use TS\DependencyInjection\TestSubjects\Automotive\EngineInterface;
@@ -67,6 +68,27 @@ class InstantiateTest extends InjectorTest
 
         $car = $this->injector->instantiate(Car::class);
         $this->assertInstanceOf(GasolineEngine::class, $car->engine);
+    }
+
+
+    public function testFactory()
+    {
+        $this->injector->factory(EngineInterface::class, function():EngineInterface{
+            return new GasolineEngine();
+        });
+        $engine = $this->injector->instantiate(EngineInterface::class);
+        $this->assertNotNull($engine);
+        $this->assertInstanceOf(EngineInterface::class, $engine);
+        $this->assertInstanceOf(GasolineEngine::class, $engine);
+    }
+
+    public function testInvalidFactory()
+    {
+        $this->injector->factory(EngineInterface::class, function(){
+            return new Car(new GasolineEngine());
+        });
+        $this->expectException(InjectionException::class);
+        $this->injector->instantiate(EngineInterface::class);
     }
 
 

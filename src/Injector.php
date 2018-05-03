@@ -106,6 +106,21 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
     }
 
 
+    /**
+     * Intercept a class instantiation.
+     * 
+     * $inj->factory(Foo::class, function(FooFactory $factory):Foo {
+     *   return $factory->create();
+     * })
+     * 
+     * @param string $className
+     * @param callable $factory
+     */
+    public function factory(string $className, callable $factory):void
+    {
+        $this->config->registerClassFactory($className, $factory);
+    }
+
 
     /**
      * Call a function or object method and automatically inject
@@ -196,23 +211,29 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
     {
         $resolvedClassName = $this->config->resolveClassAlias($className);
         $id = sprintf('new %s()', $resolvedClassName);
+        $factory = null;
+        $argumentList = null;
 
         try {
             // guards
             if ($this->config->isSingleton($resolvedClassName) && !is_null($params)) {
                 throw InjectionException::cannotUseParametersForSingleton($resolvedClassName);
             }
-            if (!$this->reflector->isClassInstantiable($resolvedClassName)) {
+            if ( ! $this->config->hasClassFactory($resolvedClassName) && !$this->reflector->isClassInstantiable($resolvedClassName)) {
                 throw InjectionException::classNotInstantiable($resolvedClassName);
             }
-
             // return early if singleton instance present
             if ($this->config->isSingleton($resolvedClassName) && $this->singletons->hasInstance($resolvedClassName)) {
                 return $this->singletons->getInstance($resolvedClassName);
             }
 
-            // check arguments
-            $argumentList = $this->createInstantiationArguments($resolvedClassName, $params);
+            // create argument list
+            if ($this->config->hasClassFactory($resolvedClassName)) {
+                $factory = $this->config->getClassFactory($resolvedClassName);
+                $argumentList = $this->createInvocationArguments($factory);
+            } else {
+                $argumentList = $this->createInstantiationArguments($resolvedClassName, $params);
+            }
 
             // keep dependency path and check for circularity
             $path = array_merge($path, [$id]);
@@ -229,8 +250,15 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
         }
 
 
-        // create instance of class
-        $instance = $this->reflector->instantiateClass($resolvedClassName, $argumentList->values());
+        // create instance (from factory or class name)
+        if ($factory) {
+            $instance = call_user_func_array($factory, $argumentList->values());
+            if (! is_a($instance, $resolvedClassName)) {
+                throw InjectionException::factoryReturnType($resolvedClassName, Reflector::getType($instance));
+            }
+        } else {
+            $instance = $this->reflector->instantiateClass($resolvedClassName, $argumentList->values());
+        }
 
 
         // decorate it

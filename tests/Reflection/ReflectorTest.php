@@ -39,6 +39,28 @@ class ReflectorTest extends TestCase
 
 
     /**
+     * @dataProvider callableReturnProvider
+     */
+    public function testGetCallableReturnType($callable, $expected)
+    {
+        $this->assertTrue(is_callable($callable));
+        $actual = $this->reflector->getCallableReturnType($callable);
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function callableReturnProvider()
+    {
+        yield [function():string{}, 'string'];
+        yield [function():void{}, 'void'];
+        yield [function(){}, null];
+        yield [function():ReflectorTest{}, ReflectorTest::class];
+    }
+
+
+
+
+
+    /**
      * @var Reflector
      */
     protected $reflector;

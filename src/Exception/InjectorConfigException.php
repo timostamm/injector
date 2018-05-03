@@ -123,5 +123,28 @@ class InjectorConfigException extends LogicException implements InjectorExceptio
     }
 
 
+    public static function factoryClassNotFound($className): self
+    {
+        $msg = sprintf('Cannot register factory because the class %s was not found.', $className);
+        return new self($msg);
+    }
+
+    public static function factoryAliased($className, $replacement): self
+    {
+        $msg = sprintf('Cannot register factory for %s, class is aliased to %s and would never be intercepted.', $className, $replacement);
+        return new self($msg);
+    }
+
+    public static function cannotRegisterFactoryIsSingleton(string $className): self
+    {
+        $msg = sprintf('Cannot register factory, class %s is instantiated as a singleton.', $className);
+        return new self($msg);
+    }
+
+    public static function factoryReturnsWrongType(string $className, string $factoryReturnType): self
+    {
+        $msg = sprintf('Cannot register factory with return type %s for class %s.', $factoryReturnType, $className);
+        return new self($msg);
+    }
 
 }

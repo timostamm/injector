@@ -155,6 +155,16 @@ class Reflector
     }
 
 
+    public function getCallableReturnType(callable $callable):?string
+    {
+        $type = $this->getCallable($callable)->getReturnType();
+        if (is_null($type)) {
+            return null;
+        }
+        return strval($type);
+    }
+
+
     public function getCallableParametersInfo(callable $callable):ParametersInfo
     {
         $ref = $this->getCallable($callable);
@@ -166,7 +176,7 @@ class Reflector
 
     public static function isBuiltinType(string $type):bool
     {
-        return in_array($type, ['bool', 'int', 'float', 'string', 'array', 'resource', 'callable']);
+        return in_array($type, ['void', 'bool', 'int', 'float', 'string', 'array', 'resource', 'callable']);
     }
 
 
