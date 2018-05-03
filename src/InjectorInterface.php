@@ -9,7 +9,9 @@
 namespace TS\DependencyInjection;
 
 
-interface InjectorInterface
+use Psr\Container\ContainerInterface;
+
+interface InjectorInterface extends ContainerInterface
 {
 
     function invoke(callable $callable, array $params = null);

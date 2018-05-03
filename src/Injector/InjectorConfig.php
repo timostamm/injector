@@ -65,6 +65,17 @@ class InjectorConfig
         $this->alias[$source] = $replacement;
     }
 
+    public function resolveClassAlias(string $className): string
+    {
+        return array_key_exists($className, $this->alias)
+            ? $this->alias[$className]
+            : $className;
+    }
+
+    public function hasClassAlias(string $className): string
+    {
+        return array_key_exists($className, $this->alias);
+    }
 
 
     public function registerClassParameters(string $className, array $params): void
@@ -174,13 +185,6 @@ class InjectorConfig
         return array_key_exists($className, $this->singleton);
     }
 
-
-    public function resolveClassAlias(string $className): string
-    {
-        return array_key_exists($className, $this->alias)
-            ? $this->alias[$className]
-            : $className;
-    }
 
     public function getClassParameters(string $className): ParametersConfig
     {

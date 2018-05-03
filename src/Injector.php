@@ -9,7 +9,9 @@
 namespace TS\DependencyInjection;
 
 use TS\DependencyInjection\Exception\ArgumentListException;
+use TS\DependencyInjection\Exception\ContainerException;
 use TS\DependencyInjection\Exception\InjectionException;
+use TS\DependencyInjection\Exception\NotFoundException;
 use TS\DependencyInjection\Injector\ArgumentInspectionInterface;
 use TS\DependencyInjection\Injector\ArgumentList;
 use TS\DependencyInjection\Injector\InjectorConfig;
@@ -119,6 +121,59 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
     public function factory(string $className, callable $factory):void
     {
         $this->config->registerClassFactory($className, $factory);
+    }
+
+
+    /**
+     * Returns true if the container can return an entry for the given identifier.
+     * Returns false otherwise.
+     *
+     * `has($id)` returning true does not mean that `get($id)` will not throw an exception.
+     * It does however mean that `get($id)` will not throw a `NotFoundExceptionInterface`.
+     *
+     * @see PSR-11
+     *
+     * @param string $id Identifier of the entry to look for.
+     *
+     * @return bool
+     */
+    public function has($id)
+    {
+        if ($this->config->hasClassFactory($id)) {
+            return true;
+        }
+        if ($this->config->hasClassAlias($id)) {
+            return true;
+        }
+        if ($this->reflector->classExists($id) && $this->reflector->isClassInstantiable($id)) {
+            return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * Finds an entry of the container by its identifier and returns it.
+     *
+     * @param string $id Identifier of the entry to look for.
+     *
+     * @see PSR-11
+     *
+     * @throws NotFoundException  No entry was found for **this** identifier.
+     * @throws ContainerException Error while retrieving the entry.
+     *
+     * @return mixed Entry.
+     */
+    public function get($id)
+    {
+        if (! $this->has($id)) {
+            throw new NotFoundException(sprintf('%s not found.', $id));
+        }
+        try {
+            return $this->instantiate($id);
+        } catch (InjectionException $exception) {
+            throw new ContainerException(sprintf('Unable to resolve %s: %s', $id, $exception->getMessage()), null, $exception);
+        }
     }
 
 
