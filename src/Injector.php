@@ -317,7 +317,7 @@ class Injector implements InjectorInterface, InspectableInjectorInterface
 
 
         // decorate it
-        $this->callDecorators($className, $instance, $path);
+        $this->callDecorators($resolvedClassName, $instance, $path);
 
 
         // remember singleton instance
