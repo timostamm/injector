@@ -1,6 +1,9 @@
 PHP Dependency Injector
 -----------------------
 
+[![Build Status](https://api.travis-ci.org/timostamm/injector.png)](https://travis-ci.org/timostamm/injector)
+
+
 A basic autowiring / autoloading injector with good support for argument overriding. 
 
 
